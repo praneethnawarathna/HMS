@@ -1,0 +1,6 @@
+[
+{"_id":"6a4b3ea9ef4243b95137addf","userId":"6a4b3da8ef4243b95137aa4d","hostelId":"6a4b3ea9ef4243b95137ad93","startDate":"2026-07-06T05:35:37.370Z","note":"Assigned during hostel creation","active":true,"__v":0},
+{"_id":"6a4b4013ef4243b95137ae85","userId":"6a4b3de9ef4243b95137ab16","hostelId":"6a4b4013ef4243b95137ae49","startDate":"2026-07-06T05:41:39.644Z","note":"Assigned during hostel creation","active":true,"__v":0},
+{"_id":"6a4b4076ef4243b95137af6e","userId":"6a4b3e1bef4243b95137abdf","hostelId":"6a4b4076ef4243b95137aeaf","startDate":"2026-07-06T05:43:18.967Z","note":"Assigned during hostel creation","active":true,"__v":0},
+{"_id":"6a4b40b7ef4243b95137b0cd","userId":"6a4b3e56ef4243b95137aca8","hostelId":"6a4b40b7ef4243b95137af98","startDate":"2026-07-06T05:44:23.165Z","note":"Assigned during hostel creation","active":true,"__v":0}
+]

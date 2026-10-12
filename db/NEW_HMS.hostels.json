@@ -1,0 +1,140 @@
+[{
+  "_id": {
+    "$oid": "689c6466daba9bb07360d99c"
+  },
+  "hostelID": "UOP/M/001",
+  "name": "Akbar nell hall",
+  "location": "https://maps.app.goo.gl/cfrwN4za2DNcnVez9",
+  "gender": "Male",
+  "roomCount": 289,
+  "warden": {
+    "$oid": "689c5cef733c6cd43964ef73"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "689d84a3b7b96af984bf5056"
+  },
+  "hostelID": "UOP/M/002",
+  "name": "Arunachalam hall",
+  "location": "https://maps.app.goo.gl/9g4AXRfAMq5iZbR6A",
+  "gender": "Male",
+  "roomCount": 63,
+  "warden": {
+    "$oid": "689d8253b7b96af984bf4fce"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68b694f49f44eb6ca1658cde"
+  },
+  "hostelID": "UOP/M/004",
+  "name": "Jayathilaka hall",
+  "location": "https://maps.app.goo.gl/kjx1oWhnrMPPquMTA",
+  "gender": "Male",
+  "roomCount": 61,
+  "warden": {
+    "$oid": "68b6933e9f44eb6ca1658bea"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68de2444d287e789a1c654e0"
+  },
+  "hostelID": "UOP/M/007",
+  "name": "Lalith Athulathmudali Hall",
+  "location": "https://maps.app.goo.gl/UWDBoAG81awvoj696",
+  "gender": "Male",
+  "roomCount": 95,
+  "warden": {
+    "$oid": "68b6c0199f44eb6ca1658d86"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68e74222824a4e329487f560"
+  },
+  "hostelID": "UOP/M/012",
+  "name": "Hindagala Hall",
+  "location": "https://maps.app.goo.gl/ig8G6nafQGE5cy4u5",
+  "gender": "Male",
+  "roomCount": 13,
+  "warden": {
+    "$oid": "68e73f1a824a4e329487f4ce"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68e77919824a4e329487f73c"
+  },
+  "hostelID": "UOP/M/008",
+  "name": "James Peiris Hall",
+  "location": "https://maps.app.goo.gl/vdxk6ZWfWhyyiicY6",
+  "gender": "Male",
+  "roomCount": 74,
+  "warden": {
+    "$oid": "68e777de824a4e329487f694"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68e77ed1824a4e329487f8a1"
+  },
+  "hostelID": "UOP/M/010",
+  "name": "Marss Hall",
+  "location": "https://maps.app.goo.gl/WQVBXEFgGo8R4jCn8",
+  "gender": "Male",
+  "roomCount": 78,
+  "warden": {
+    "$oid": "68e77d83824a4e329487f80f"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68e784e1824a4e329487f99a"
+  },
+  "hostelID": "UOP/F/008",
+  "name": "ESH & GMH Halls",
+  "location": "https://maps.app.goo.gl/hCjtnikzwGVhTWJj7",
+  "gender": "Female",
+  "roomCount": 194,
+  "warden": {
+    "$oid": "68e7834b824a4e329487f93a"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68e894f8154027c268903b62"
+  },
+  "hostelID": "UOP/F/002",
+  "name": "Sarasavi Uyana Hall",
+  "location": "https://maps.app.goo.gl/rhHqHxENq921Jf7T9",
+  "gender": "Female",
+  "roomCount": 103,
+  "warden": {
+    "$oid": "68e891b3154027c268903ad8"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68e89bd1154027c268903cc6"
+  },
+  "hostelID": "UOP/F/004",
+  "name": "Sarasavi Medura Hall",
+  "location": "https://maps.app.goo.gl/AvZbezCg4NGN752y6",
+  "gender": "Female",
+  "roomCount": 187,
+  "warden": {
+    "$oid": "68e89940154027c268903c4a"
+  },
+  "__v": 0
+}]

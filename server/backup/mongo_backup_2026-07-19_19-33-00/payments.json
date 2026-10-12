@@ -1,0 +1,5 @@
+[
+{"_id":"69fc1f91842a3c1993de6d9a","studentId":"69f04c47b33c6fb393b72d0f","academicYear":"2026","amount":1500,"type":"hostel-fee","note":"hostel","paidDate":"2026-06-23T06:15:55.368Z","__v":0,"hallFee":1500,"paidBy":"69e5c3f4a808710289d006b2","paymentStatus":"Paid"},
+{"_id":"6a3a24a828fcb4e45f22a514","studentId":"69f04c47b33c6fb393b72cdc","hostelId":"69e5c42ea808710289d0072d","academicYear":"2026","hallFee":1500,"paymentStatus":"Paid","paidDate":"2026-06-23T06:16:08.973Z","paidBy":"69e5c3f4a808710289d006b2","amount":1500,"type":"hostel-fee","__v":0},
+{"_id":"6a3a28f928fcb4e45f22a56c","studentId":"69f04c47b33c6fb393b72cbb","hostelId":"69e5c42ea808710289d0072d","academicYear":"2026","hallFee":1500,"paymentStatus":"Paid","paidDate":"2026-06-23T06:34:33.284Z","paidBy":"69e5c3f4a808710289d006b2","amount":1500,"type":"hostel-fee","__v":0}
+]
