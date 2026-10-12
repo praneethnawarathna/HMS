@@ -1,0 +1,170 @@
+[{
+  "_id": {
+    "$oid": "689c6466daba9bb07360dac0"
+  },
+  "userId": {
+    "$oid": "689c5cef733c6cd43964ef73"
+  },
+  "hostelId": {
+    "$oid": "689c6466daba9bb07360d99c"
+  },
+  "startDate": {
+    "$date": "2025-08-13T10:09:42.652Z"
+  },
+  "note": "Assigned during hostel creation",
+  "active": true,
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "689d84a3b7b96af984bf5096"
+  },
+  "userId": {
+    "$oid": "689d8253b7b96af984bf4fce"
+  },
+  "hostelId": {
+    "$oid": "689d84a3b7b96af984bf5056"
+  },
+  "startDate": {
+    "$date": "2025-08-14T06:39:31.533Z"
+  },
+  "note": "Assigned during hostel creation",
+  "active": true,
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68b694f49f44eb6ca1658d1e"
+  },
+  "userId": {
+    "$oid": "68b6933e9f44eb6ca1658bea"
+  },
+  "hostelId": {
+    "$oid": "68b694f49f44eb6ca1658cde"
+  },
+  "startDate": {
+    "$date": "2025-09-02T06:55:48.813Z"
+  },
+  "note": "Assigned during hostel creation",
+  "active": true,
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68de2444d287e789a1c65542"
+  },
+  "userId": {
+    "$oid": "68b6c0199f44eb6ca1658d86"
+  },
+  "hostelId": {
+    "$oid": "68de2444d287e789a1c654e0"
+  },
+  "startDate": {
+    "$date": "2025-10-02T07:05:40.802Z"
+  },
+  "note": "Assigned during hostel creation",
+  "active": true,
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68e74222824a4e329487f570"
+  },
+  "userId": {
+    "$oid": "68e73f1a824a4e329487f4ce"
+  },
+  "hostelId": {
+    "$oid": "68e74222824a4e329487f560"
+  },
+  "startDate": {
+    "$date": "2025-10-09T05:03:30.401Z"
+  },
+  "note": "Assigned during hostel creation",
+  "active": true,
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68e7791a824a4e329487f789"
+  },
+  "userId": {
+    "$oid": "68e777de824a4e329487f694"
+  },
+  "hostelId": {
+    "$oid": "68e77919824a4e329487f73c"
+  },
+  "startDate": {
+    "$date": "2025-10-09T08:58:02.057Z"
+  },
+  "note": "Assigned during hostel creation",
+  "active": true,
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68e77ed1824a4e329487f8f2"
+  },
+  "userId": {
+    "$oid": "68e77d83824a4e329487f80f"
+  },
+  "hostelId": {
+    "$oid": "68e77ed1824a4e329487f8a1"
+  },
+  "startDate": {
+    "$date": "2025-10-09T09:22:25.588Z"
+  },
+  "note": "Assigned during hostel creation",
+  "active": true,
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68e784e2824a4e329487fa5f"
+  },
+  "userId": {
+    "$oid": "68e7834b824a4e329487f93a"
+  },
+  "hostelId": {
+    "$oid": "68e784e1824a4e329487f99a"
+  },
+  "startDate": {
+    "$date": "2025-10-09T09:48:18.110Z"
+  },
+  "note": "Assigned during hostel creation",
+  "active": true,
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68e894f8154027c268903bcc"
+  },
+  "userId": {
+    "$oid": "68e891b3154027c268903ad8"
+  },
+  "hostelId": {
+    "$oid": "68e894f8154027c268903b62"
+  },
+  "startDate": {
+    "$date": "2025-10-10T05:09:12.846Z"
+  },
+  "note": "Assigned during hostel creation",
+  "active": true,
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "68e89bd1154027c268903d84"
+  },
+  "userId": {
+    "$oid": "68e89940154027c268903c4a"
+  },
+  "hostelId": {
+    "$oid": "68e89bd1154027c268903cc6"
+  },
+  "startDate": {
+    "$date": "2025-10-10T05:38:25.955Z"
+  },
+  "note": "Assigned during hostel creation",
+  "active": true,
+  "__v": 0
+}]

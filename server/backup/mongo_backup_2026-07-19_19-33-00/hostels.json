@@ -1,0 +1,6 @@
+[
+{"_id":"6a4b3ea9ef4243b95137ad93","hostelID":"JP","name":"James Peris","location":"https://maps.app.goo.gl/78ua2uYZVruiArQA9","gender":"Male","roomCount":73,"warden":"6a4b3da8ef4243b95137aa4d","__v":0},
+{"_id":"6a4b4013ef4243b95137ae49","hostelID":"KP","name":"Kehelpannala Bhikku Hall","location":"https://maps.app.goo.gl/CYuapmoxqFVtTaMQ6","gender":"REV","roomCount":57,"warden":"6a4b3de9ef4243b95137ab16","__v":0},
+{"_id":"6a4b4076ef4243b95137aeaf","hostelID":"Sarasavi Medura","name":"Sarasavi Medura Hall","location":"https://maps.app.goo.gl/yno8wdaXoN5j794v6","gender":"Female","roomCount":188,"warden":"6a4b3e1bef4243b95137abdf","__v":0},
+{"_id":"6a4b40b7ef4243b95137af98","hostelID":"Ramanathan ","name":"Ramanathan Hall","location":"https://maps.app.goo.gl/mSgxVfBsJYadANLw8","gender":"Female","roomCount":306,"warden":"6a4b3e56ef4243b95137aca8","__v":0}
+]

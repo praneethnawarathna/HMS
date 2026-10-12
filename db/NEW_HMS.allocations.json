@@ -1,0 +1,294 @@
+[{
+  "_id": {
+    "$oid": "68943c6921a93253204a428a"
+  },
+  "regNo": "683fe9df0c6391fe8363b1a4",
+  "hostelID": {
+    "$oid": "68943c0f21a93253204a4214"
+  },
+  "academicYear": "2025",
+  "inDate": {
+    "$date": "2025-08-07T05:40:57.744Z"
+  },
+  "active": true,
+  "__v": 0,
+  "roomId": {
+    "$oid": "68943c0f21a93253204a4217"
+  }
+},
+{
+  "_id": {
+    "$oid": "68943c6921a93253204a428b"
+  },
+  "regNo": "683fe9df0c6391fe8363b1a6",
+  "hostelID": {
+    "$oid": "68943c0f21a93253204a4214"
+  },
+  "academicYear": "2025",
+  "inDate": {
+    "$date": "2025-08-07T05:40:57.744Z"
+  },
+  "active": true,
+  "__v": 0,
+  "roomId": {
+    "$oid": "68943c0f21a93253204a4217"
+  }
+},
+{
+  "_id": {
+    "$oid": "68943c6921a93253204a428c"
+  },
+  "regNo": "683fe9df0c6391fe8363b1a8",
+  "hostelID": {
+    "$oid": "68943c0f21a93253204a4214"
+  },
+  "academicYear": "2025",
+  "inDate": {
+    "$date": "2025-08-07T05:40:57.744Z"
+  },
+  "active": true,
+  "__v": 0,
+  "roomId": {
+    "$oid": "68943c0f21a93253204a4218"
+  }
+},
+{
+  "_id": {
+    "$oid": "689d85d9b7b96af984bf5205"
+  },
+  "regNo": "689c67bddaba9bb07360de85",
+  "hostelID": {
+    "$oid": "689c6466daba9bb07360d99c"
+  },
+  "academicYear": "2025",
+  "inDate": {
+    "$date": "2025-08-14T06:44:41.119Z"
+  },
+  "active": true,
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "689d85d9b7b96af984bf5206"
+  },
+  "regNo": "689c67bddaba9bb07360de98",
+  "hostelID": {
+    "$oid": "689c6466daba9bb07360d99c"
+  },
+  "academicYear": "2025",
+  "inDate": {
+    "$date": "2025-08-14T06:44:41.119Z"
+  },
+  "active": true,
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "689d85d9b7b96af984bf5207"
+  },
+  "regNo": "689c67bddaba9bb07360dea7",
+  "hostelID": {
+    "$oid": "689c6466daba9bb07360d99c"
+  },
+  "academicYear": "2025",
+  "inDate": {
+    "$date": "2025-08-14T06:44:41.119Z"
+  },
+  "active": true,
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "689d85d9b7b96af984bf5208"
+  },
+  "regNo": "689c67bddaba9bb07360dec1",
+  "hostelID": {
+    "$oid": "689c6466daba9bb07360d99c"
+  },
+  "academicYear": "2025",
+  "inDate": {
+    "$date": "2025-08-14T06:44:41.119Z"
+  },
+  "active": true,
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "689d85d9b7b96af984bf5209"
+  },
+  "regNo": "689c67bddaba9bb07360dec3",
+  "hostelID": {
+    "$oid": "689c6466daba9bb07360d99c"
+  },
+  "academicYear": "2025",
+  "inDate": {
+    "$date": "2025-08-14T06:44:41.119Z"
+  },
+  "active": true,
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "689d85d9b7b96af984bf520a"
+  },
+  "regNo": "689c67bddaba9bb07360dec5",
+  "hostelID": {
+    "$oid": "689c6466daba9bb07360d99c"
+  },
+  "academicYear": "2025",
+  "inDate": {
+    "$date": "2025-08-14T06:44:41.119Z"
+  },
+  "active": true,
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "689d85d9b7b96af984bf520b"
+  },
+  "regNo": "689c67bddaba9bb07360deca",
+  "hostelID": {
+    "$oid": "689c6466daba9bb07360d99c"
+  },
+  "academicYear": "2025",
+  "inDate": {
+    "$date": "2025-08-14T06:44:41.119Z"
+  },
+  "active": true,
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "689d85d9b7b96af984bf520c"
+  },
+  "regNo": "689c67bddaba9bb07360ded9",
+  "hostelID": {
+    "$oid": "689c6466daba9bb07360d99c"
+  },
+  "academicYear": "2025",
+  "inDate": {
+    "$date": "2025-08-14T06:44:41.119Z"
+  },
+  "active": true,
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "689d85d9b7b96af984bf520d"
+  },
+  "regNo": "689c67bddaba9bb07360dee5",
+  "hostelID": {
+    "$oid": "689c6466daba9bb07360d99c"
+  },
+  "academicYear": "2025",
+  "inDate": {
+    "$date": "2025-08-14T06:44:41.119Z"
+  },
+  "active": true,
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "689d85d9b7b96af984bf520e"
+  },
+  "regNo": "689c67bddaba9bb07360dee7",
+  "hostelID": {
+    "$oid": "689c6466daba9bb07360d99c"
+  },
+  "academicYear": "2025",
+  "inDate": {
+    "$date": "2025-08-14T06:44:41.119Z"
+  },
+  "active": true,
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "689d8a91b7b96af984bf52fe"
+  },
+  "regNo": "689c67bddaba9bb07360def0",
+  "hostelID": {
+    "$oid": "689d84a3b7b96af984bf5056"
+  },
+  "academicYear": "2025",
+  "inDate": {
+    "$date": "2025-08-14T07:04:49.898Z"
+  },
+  "active": true,
+  "__v": 0,
+  "roomId": {
+    "$oid": "689d84a3b7b96af984bf505b"
+  }
+},
+{
+  "_id": {
+    "$oid": "689d8a91b7b96af984bf52ff"
+  },
+  "regNo": "689c67bddaba9bb07360def3",
+  "hostelID": {
+    "$oid": "689d84a3b7b96af984bf5056"
+  },
+  "academicYear": "2025",
+  "inDate": {
+    "$date": "2025-08-14T07:04:49.898Z"
+  },
+  "active": true,
+  "__v": 0,
+  "roomId": {
+    "$oid": "689d84a3b7b96af984bf505c"
+  }
+},
+{
+  "_id": {
+    "$oid": "689d8a91b7b96af984bf5300"
+  },
+  "regNo": "689c67bddaba9bb07360deff",
+  "hostelID": {
+    "$oid": "689d84a3b7b96af984bf5056"
+  },
+  "academicYear": "2025",
+  "inDate": {
+    "$date": "2025-08-14T07:04:49.898Z"
+  },
+  "active": true,
+  "__v": 0,
+  "roomId": {
+    "$oid": "689d84a3b7b96af984bf505c"
+  }
+},
+{
+  "_id": {
+    "$oid": "689d8a91b7b96af984bf5301"
+  },
+  "regNo": "689c67bddaba9bb07360df0c",
+  "hostelID": {
+    "$oid": "689d84a3b7b96af984bf5056"
+  },
+  "academicYear": "2025",
+  "inDate": {
+    "$date": "2025-08-14T07:04:49.898Z"
+  },
+  "active": true,
+  "__v": 0,
+  "roomId": {
+    "$oid": "689d84a3b7b96af984bf505c"
+  }
+},
+{
+  "_id": {
+    "$oid": "689d8a91b7b96af984bf5302"
+  },
+  "regNo": "689c67bddaba9bb07360df0d",
+  "hostelID": {
+    "$oid": "689d84a3b7b96af984bf5056"
+  },
+  "academicYear": "2025",
+  "inDate": {
+    "$date": "2025-08-14T07:04:49.898Z"
+  },
+  "active": true,
+  "__v": 0,
+  "roomId": {
+    "$oid": "689d84a3b7b96af984bf505c"
+  }
+}]

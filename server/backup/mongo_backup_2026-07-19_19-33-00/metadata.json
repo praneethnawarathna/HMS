@@ -1,0 +1,25 @@
+{
+  "createdAt": "2026-07-19T14:03:00.013Z",
+  "database": "NEW_HMS",
+  "collections": [
+    "hosteleligibilities",
+    "payments",
+    "students",
+    "wardens",
+    "hostels",
+    "rooms",
+    "backupsettings",
+    "userotps",
+    "allocations",
+    "damages",
+    "specialneeds",
+    "users",
+    "roles",
+    "emergencycontacts",
+    "eligibilities",
+    "studentinfos",
+    "excelimportlists",
+    "studentlastupdates",
+    "systemsettings"
+  ]
+}

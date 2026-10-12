@@ -1,0 +1,1 @@
+const Student = require('./model/Student'); const mongoose = require('mongoose'); require('dotenv').config(); mongoose.connect(process.env.MongoUrl || 'mongodb://127.0.0.1:27017/NEW_HMS').then(async () => { const s = await Student.findOne({email: 'sathusathushan116@gmail.com'}); console.log('Found:', !!s); process.exit(0);});
