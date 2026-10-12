@@ -1,15 +1,22 @@
 const mongoose = require('mongoose');
 
 const allocationSchema = new mongoose.Schema({
-    regNo: { type: String },  // Student enrollment number (e.g., "A/23/001")
-    studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Student' },  // Reference to Student document
-    roomId: { type: mongoose.Schema.Types.ObjectId, ref: 'Room' },
-    hostelID: { type: mongoose.Schema.Types.ObjectId, ref: 'Hostel' },    
+    _id: {
+        type: String,
+        default: () => new mongoose.Types.ObjectId().toString()
+    },
+    regNo: { type: String, index: true },  // Student enrollment number (e.g., "A/23/001")
+    studentId: { type: String, ref: 'Student', index: true },  // Reference to Student document
+    roomId: { type: String, ref: 'Room' },
+    hostelID: { type: String, ref: 'Hostel', index: true },    
     academicYear: String,
     inDate: Date,
     outDate: Date,
     note: String,
-    active: Boolean
+    active: { type: Boolean, index: true }
 });
+
+allocationSchema.index({ active: 1, hostelID: 1 });
+allocationSchema.index({ active: 1, studentId: 1 });
 
 module.exports = mongoose.model('Allocation', allocationSchema);

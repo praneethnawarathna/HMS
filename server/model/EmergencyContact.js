@@ -1,7 +1,11 @@
 const mongoose = require('mongoose');
 
 const emergencyContactSchema = new mongoose.Schema({
-    regNo: { type: String, ref: 'Student' },
+    _id: {
+        type: String,
+        default: () => new mongoose.Types.ObjectId().toString()
+    },
+    regNo: { type: String, ref: 'Student', index: true },
     firstName: String,
     surname: String,
     relationship: String,

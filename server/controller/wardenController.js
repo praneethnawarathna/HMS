@@ -379,7 +379,7 @@ const WardenController = {
 
             const HostelAllocationHistory = require('../model/HostelAllocationHistory');
             const targetStudentId = student ? student._id : (allocation.studentId || null);
-            
+
             if (targetStudentId) {
                 await HostelAllocationHistory.create({
                     studentId: targetStudentId,
@@ -805,12 +805,30 @@ const WardenController = {
                 academicYear: academicYear
             });
 
-            const { amount } = req.body;
-            const feeAmount = amount ? Number(amount) : 1500;
+            const { amount, paidDate, status, paymentStatus } = req.body;
+            const targetStatus = status || paymentStatus;
+
+            if (targetStatus === 'Pending') {
+                if (payment) {
+                    await Payment.deleteOne({ _id: payment._id });
+                }
+                return res.json({ Status: 'Success', Message: 'Payment reverted to Pending', paymentStatus: 'Pending' });
+            }
+
+            const feeAmount = (amount !== undefined && amount !== null && amount !== '') ? Number(amount) : (payment?.amount || 1500);
+            let paymentDate = new Date();
+            if (paidDate) {
+                const parsed = new Date(paidDate);
+                if (!isNaN(parsed.getTime())) {
+                    paymentDate = parsed;
+                }
+            } else if (payment && payment.paidDate) {
+                paymentDate = payment.paidDate;
+            }
 
             if (payment) {
                 payment.paymentStatus = 'Paid';
-                payment.paidDate = new Date();
+                payment.paidDate = paymentDate;
                 payment.paidBy = userId;
                 payment.amount = feeAmount;
                 payment.hallFee = feeAmount;
@@ -825,7 +843,7 @@ const WardenController = {
                     amount: feeAmount,
                     type: 'hostel-fee',
                     paymentStatus: 'Paid',
-                    paidDate: new Date(),
+                    paidDate: paymentDate,
                     paidBy: userId
                 });
                 await payment.save();
