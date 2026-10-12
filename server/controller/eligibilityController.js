@@ -182,10 +182,19 @@ const EligibilityController = {
                     }
                 }
                 
-                // If student doesn't exist, this is an orphaned allocation
+                // If student record not found, still provide fallback info from allocation
                 if (!s || Object.keys(s).length === 0) {
-                    orphanedAllocationIds.push(alloc._id);
-                    return null;
+                    return {
+                        _id: alloc.studentId || alloc._id,
+                        allocationId: alloc._id,
+                        enrolmentNo: alloc.regNo || 'Unknown',
+                        name: 'Unknown Student',
+                        hostelName: alloc.hostelID?.name || null,
+                        hostelCode: alloc.hostelID?.hostelID || null,
+                        roomNumber: alloc.roomId?.roomID || null,
+                        assignmentDate: alloc.inDate || null,
+                        allocationActive: alloc.active || false,
+                    };
                 }
                 
                 return {
@@ -200,14 +209,7 @@ const EligibilityController = {
                     assignmentDate: alloc.inDate || s.hostelAssignedDate || null,
                     allocationActive: alloc.active || false,
                 };
-            }).filter(Boolean); // Remove the nulls (orphaned ones)
-
-            // Background cleanup of orphaned allocations
-            if (orphanedAllocationIds.length > 0) {
-                Allocation.deleteMany({ _id: { $in: orphanedAllocationIds } })
-                    .then(result => console.log(`Cleaned up ${result.deletedCount} orphaned allocations`))
-                    .catch(err => console.error("Failed to clean orphaned allocations:", err));
-            }
+            }).filter(Boolean);
 
             // Ensure unique students in case of duplicate active allocations
             const uniqueStudents = [];

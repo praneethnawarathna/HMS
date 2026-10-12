@@ -1,12 +1,14 @@
 import axios from 'axios'
 import React, { useEffect, useState, useRef, useMemo } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import ExcelJS from 'exceljs'
 import { saveAs } from 'file-saver'
+import { X } from 'lucide-react'
 
 import DefaultInput from '../../components/Form/DefaultInput'
 import { FaFemale, FaMale, FaUserTie } from 'react-icons/fa'
 import Dropdown from '../../components/Form/Dropdown'
+import ActionButtons from '../../components/Buttons/ActionButtons'
 
 const DEPARTMENT_MAP = {
     A: 'Arts',
@@ -16,6 +18,7 @@ const DEPARTMENT_MAP = {
 }
 
 const AllStudents = () => {
+    const navigate = useNavigate()
     const [allstds, setAllStds] = useState([])
     const [filteredStudents, setFilteredStudents] = useState([])
     const [searchTerm, setSearchTerm] = useState('')
@@ -36,6 +39,66 @@ const AllStudents = () => {
     const recordsPerPage = 15
     const token = localStorage.getItem('login')
 
+    // Edit modal state
+    const [editingStudent, setEditingStudent] = useState(null)
+    const [editForm, setEditForm] = useState({})
+    const [editLoading, setEditLoading] = useState(false)
+    const [editError, setEditError] = useState('')
+    const [editSuccess, setEditSuccess] = useState('')
+
+    // Bulk delete modal state
+    const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false)
+    const [bulkFilters, setBulkFilters] = useState({ faculty: '', batch: '', gender: '', assignmentStatus: '', hostel: '' })
+    const [bulkDeleting, setBulkDeleting] = useState(false)
+    const [bulkDeleteResult, setBulkDeleteResult] = useState(null) // { deleted, failed }
+
+    const handleOpenEditModal = (student) => {
+        setEditingStudent(student)
+        setEditForm({
+            name: student.name || '',
+            nic: student.nic || '',
+            enrolmentNo: student.enrolmentNo || '',
+            alDistrict: student.alDistrict || '',
+            address1: student.address1 || '',
+            address2: student.address2 || '',
+            address3: student.address3 || '',
+            fullAddress: student.fullAddress || '',
+            intake: student.intake || '',
+            dateOfEnrolment: student.dateOfEnrolment ? student.dateOfEnrolment.split('T')[0] : '',
+            distance: student.distance || '',
+            sex: student.sex || '',
+        })
+        setEditError('')
+        setEditSuccess('')
+    }
+
+    const handleSaveStudentEdit = async (e) => {
+        e.preventDefault()
+        setEditLoading(true)
+        setEditError('')
+        setEditSuccess('')
+        try {
+            const res = await axios.post(
+                `${import.meta.env.VITE_APP_API}/student/update-Student/${editingStudent._id}`,
+                editForm,
+                { headers: { Authorization: `Bearer ${token}` } }
+            )
+            if (res.data.Status === 'Success') {
+                setEditSuccess('Student updated successfully!')
+                const updated = { ...editingStudent, ...editForm }
+                setAllStds(prev => prev.map(s => s._id === editingStudent._id ? updated : s))
+                setFilteredStudents(prev => prev.map(s => s._id === editingStudent._id ? updated : s))
+                setTimeout(() => setEditingStudent(null), 1000)
+            } else {
+                setEditError(res.data.Error || 'Failed to update student.')
+            }
+        } catch (err) {
+            setEditError('Error updating student. Please try again.')
+        } finally {
+            setEditLoading(false)
+        }
+    }
+
     const isStudentAssigned = (student) => {
         return student?.isAssign === true || Boolean(student?.hostelId || student?.hostelName)
     }
@@ -43,22 +106,68 @@ const AllStudents = () => {
     const getMainDept = enrolNo => {
         if (!enrolNo) return ''
         const parts = enrolNo.split('/').filter(Boolean)
-        return parts[0] || '' // MG/24/002 -> MG, AG/23/FT/015 -> AG
+        return parts[0] || ''
     }
 
     const getSubDept = enrolNo => {
         if (!enrolNo) return ''
         const parts = enrolNo.split('/').filter(Boolean)
-        // If full format with sub (4+ parts) return explicit sub (e.g. FT)
-        // If short format (3 parts like MG/24/002) return main as sub so short entries appear under sub
         if (parts.length >= 4) return parts[2]
         if (parts.length === 3) return parts[0]
         return ''
     }
 
-    // Backwards-compatible alias: getDept returns main department code
-
     const getYear = enrolNo => enrolNo?.split('/')?.[1] ?? ''
+
+    // Bulk delete: compute students matching the modal filters
+    const bulkDeleteMatches = React.useMemo(() => {
+        return (Array.isArray(allstds) ? allstds : []).filter(s => {
+            const mainDept = getMainDept(s.enrolmentNo || '')
+            const batch = getYear(s.enrolmentNo || '')
+            const matchFaculty = !bulkFilters.faculty || mainDept === bulkFilters.faculty
+            const matchBatch = !bulkFilters.batch || batch === bulkFilters.batch
+            const matchGender = !bulkFilters.gender || (s.sex && s.sex.trim().toLowerCase() === bulkFilters.gender.trim().toLowerCase())
+            const assigned = isStudentAssigned(s)
+            const matchAssign =
+                !bulkFilters.assignmentStatus ||
+                bulkFilters.assignmentStatus === 'All' ||
+                (bulkFilters.assignmentStatus === 'Assigned' ? assigned : !assigned)
+            const matchHostel = !bulkFilters.hostel || s.hostelId === bulkFilters.hostel
+            return matchFaculty && matchBatch && matchGender && matchAssign && matchHostel
+        })
+    }, [allstds, bulkFilters])
+
+    const handleBulkDelete = async () => {
+        if (bulkDeleteMatches.length === 0) return
+        setBulkDeleting(true)
+        setBulkDeleteResult(null)
+        let deleted = 0
+        let failed = 0
+        const idsToDelete = new Set(bulkDeleteMatches.map(s => s._id))
+        for (const s of bulkDeleteMatches) {
+            try {
+                const res = await axios.delete(
+                    `${import.meta.env.VITE_APP_API}/student/delete-student/${s._id}`,
+                    { headers: { Authorization: `Bearer ${token}` } }
+                )
+                if (res.data.Status === 'Success') deleted++
+                else failed++
+            } catch { failed++ }
+        }
+        setAllStds(prev => prev.filter(s => !idsToDelete.has(s._id)))
+        setFilteredStudents(prev => prev.filter(s => !idsToDelete.has(s._id)))
+        setBulkDeleting(false)
+        setBulkDeleteResult({ deleted, failed })
+        setBulkFilters({ faculty: '', batch: '', gender: '', assignmentStatus: '', hostel: '' })
+    }
+
+    const openBulkDeleteModal = () => {
+        setBulkFilters({ faculty: '', batch: '', gender: '', assignmentStatus: '', hostel: '' })
+        setBulkDeleteResult(null)
+        setShowBulkDeleteModal(true)
+    }
+
+
 
     useEffect(() => {
         axios
@@ -100,20 +209,20 @@ const AllStudents = () => {
     // parent -> Array of sub objects { value, label, type }
     const parentSubMap = React.useMemo(() => {
         const m = new Map()
-        ;(Array.isArray(allstds) ? allstds : []).forEach(s => {
-            const enrol = s.enrolmentNo || ''
-            const main = getMainDept(enrol)
-            const parts = enrol.split('/').filter(Boolean)
-            const explicitSub = parts.length >= 4 ? parts[2] : ''
-            if (!main) return
-            if (!m.has(main)) m.set(main, new Map())
+            ; (Array.isArray(allstds) ? allstds : []).forEach(s => {
+                const enrol = s.enrolmentNo || ''
+                const main = getMainDept(enrol)
+                const parts = enrol.split('/').filter(Boolean)
+                const explicitSub = parts.length >= 4 ? parts[2] : ''
+                if (!main) return
+                if (!m.has(main)) m.set(main, new Map())
 
-            // explicit sub
-            if (explicitSub && explicitSub !== main) m.get(main).set(`SUB:${explicitSub}`, { value: `SUB:${explicitSub}`, label: `${explicitSub}`, type: 'sub' })
+                // explicit sub
+                if (explicitSub && explicitSub !== main) m.get(main).set(`SUB:${explicitSub}`, { value: `SUB:${explicitSub}`, label: `${explicitSub}`, type: 'sub' })
 
-            // short-format (3 parts) -> represent as SUBSHORT
-            if (parts.length === 3) m.get(main).set(`SUBSHORT:${main}`, { value: `SUBSHORT:${main}`, label: `${main}`, type: 'short' })
-        })
+                // short-format (3 parts) -> represent as SUBSHORT
+                if (parts.length === 3) m.get(main).set(`SUBSHORT:${main}`, { value: `SUBSHORT:${main}`, label: `${main}`, type: 'short' })
+            })
 
         // convert inner maps to arrays
         const out = new Map()
@@ -454,7 +563,7 @@ const AllStudents = () => {
         saveAs(new Blob([buffer]), `${data.fileName}.xlsx`)
     }
 
-    return (
+    return (<>
         <div className="mt-8">
             <div className="mb-4 flex flex-wrap items-center gap-6">
                 <DefaultInput
@@ -566,6 +675,13 @@ const AllStudents = () => {
                 >
                     Sort Enrolment {sortOrder === 'asc' ? '↑' : '↓'}
                 </button>
+
+                <button
+                    onClick={openBulkDeleteModal}
+                    className="bg-red-700 text-white px-6 py-2 rounded hover:bg-red-800 font-semibold flex items-center gap-2"
+                >
+                    🗑 Bulk Delete
+                </button>
             </div>
 
             <div className="overflow-x-auto rounded-2xl shadow-lg">
@@ -627,12 +743,30 @@ const AllStudents = () => {
                                         )}
                                     </td>
                                     <td className="px-6 py-4">
-                                        <Link
-                                            to={`/Dashboard/View-Student/${data._id}`}
-                                            className="text-[#6b0f14] font-medium hover:underline"
-                                        >
-                                            View
-                                        </Link>
+                                        <ActionButtons
+                                            onEdit={() => handleOpenEditModal(data)}
+                                            onDelete={async () => {
+                                                if (!window.confirm(`Delete student ${data.enrolmentNo}? This action cannot be undone.`)) return;
+                                                try {
+                                                    const res = await axios.delete(
+                                                        `${import.meta.env.VITE_APP_API}/student/delete-student/${data._id}`,
+                                                        { headers: { Authorization: `Bearer ${token}` } }
+                                                    );
+                                                    if (res.data.Status === 'Success') {
+                                                        setAllStds(prev => prev.filter(s => s._id !== data._id));
+                                                        setFilteredStudents(prev => prev.filter(s => s._id !== data._id));
+                                                    } else {
+                                                        alert(res.data.Error || res.data.error || 'Failed to delete student');
+                                                    }
+                                                } catch (err) {
+                                                    console.error(err);
+                                                    alert('Error deleting student');
+                                                }
+                                            }}
+                                            editTitle="Edit student details"
+                                            deleteTitle="Delete this student"
+                                            showLabels={false}
+                                        />
                                     </td>
                                 </tr>
                             ))
@@ -765,7 +899,245 @@ const AllStudents = () => {
                 </div>
             )}
         </div>
-    )
+
+        {/* Edit Student Modal */}
+        {editingStudent && (
+            <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+                <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden border border-gray-100 flex flex-col max-h-[90vh]">
+                    {/* Modal Header */}
+                    <div className="px-6 py-4 bg-[#6b0f14] text-white flex items-center justify-between flex-shrink-0">
+                        <div>
+                            <h3 className="font-bold text-lg">Edit Student Details</h3>
+                            <p className="text-xs text-[#fdf6e3]/80">{editingStudent.enrolmentNo} — {editingStudent.name}</p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setEditingStudent(null)}
+                            className="p-1 rounded-lg hover:bg-white/20 transition-colors text-white"
+                        >
+                            <X size={20} />
+                        </button>
+                    </div>
+
+                    {/* Modal Form */}
+                    <form onSubmit={handleSaveStudentEdit} className="p-6 space-y-4 overflow-y-auto">
+                        {editError && (
+                            <div className="p-3 text-xs bg-red-50 border border-red-200 text-red-700 rounded-lg">{editError}</div>
+                        )}
+                        {editSuccess && (
+                            <div className="p-3 text-xs bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg font-medium">{editSuccess}</div>
+                        )}
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {[
+                                { key: 'name', label: 'Full Name', type: 'text' },
+                                { key: 'nic', label: 'NIC', type: 'text' },
+                                { key: 'enrolmentNo', label: 'Enrolment No', type: 'text' },
+                                { key: 'alDistrict', label: 'AL District', type: 'text' },
+                                { key: 'address1', label: 'Address 1', type: 'text' },
+                                { key: 'address2', label: 'Address 2', type: 'text' },
+                                { key: 'address3', label: 'Address 3', type: 'text' },
+                                { key: 'fullAddress', label: 'Full Address', type: 'text' },
+                                { key: 'intake', label: 'Intake', type: 'text' },
+                                { key: 'dateOfEnrolment', label: 'Date of Enrolment', type: 'date' },
+                                { key: 'distance', label: 'Distance (km)', type: 'number' },
+                            ].map(field => (
+                                <div key={field.key}>
+                                    <label className="block text-xs font-semibold text-gray-700 mb-1">{field.label}</label>
+                                    <input
+                                        type={field.type}
+                                        value={editForm[field.key]}
+                                        onChange={e => setEditForm(prev => ({ ...prev, [field.key]: e.target.value }))}
+                                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6b0f14]/30 focus:border-[#6b0f14]"
+                                    />
+                                </div>
+                            ))}
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-700 mb-1">Gender</label>
+                                <select
+                                    value={editForm.sex}
+                                    onChange={e => setEditForm(prev => ({ ...prev, sex: e.target.value }))}
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6b0f14]/30 focus:border-[#6b0f14] bg-white"
+                                >
+                                    <option value="">-- Select --</option>
+                                    <option value="Male">Male</option>
+                                    <option value="Female">Female</option>
+                                    <option value="REV">REV</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className="flex items-center justify-end gap-2 pt-4 border-t border-gray-100">
+                            <button
+                                type="button"
+                                onClick={() => setEditingStudent(null)}
+                                className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={editLoading}
+                                className="px-4 py-2 text-sm font-medium text-white bg-[#6b0f14] hover:bg-[#7c1119] rounded-lg transition-colors disabled:opacity-50"
+                            >
+                                {editLoading ? 'Saving...' : 'Save Changes'}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        )}
+
+
+
+        {/* Bulk Delete Modal */}
+        {showBulkDeleteModal && (
+            <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+                <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full border border-gray-100 overflow-hidden">
+                    {/* Header */}
+                    <div className="px-6 py-4 bg-red-700 text-white flex items-center justify-between">
+                        <div>
+                            <h3 className="font-bold text-base">🗑 Bulk Delete Students</h3>
+                            <p className="text-xs text-white/70 mt-0.5">Filter students to delete in bulk</p>
+                        </div>
+                        <button onClick={() => { setShowBulkDeleteModal(false); setBulkDeleteResult(null) }} className="p-1 hover:bg-white/20 rounded-lg transition-colors">
+                            <X size={18} />
+                        </button>
+                    </div>
+
+                    <div className="p-6 space-y-4">
+                        {bulkDeleteResult ? (
+                            /* Result view */
+                            <div className="text-center py-4">
+                                <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-3">
+                                    <span className="text-2xl">✅</span>
+                                </div>
+                                <p className="font-bold text-gray-800 text-base mb-1">Deletion Complete</p>
+                                <p className="text-sm text-gray-600">
+                                    <span className="font-semibold text-green-700">{bulkDeleteResult.deleted}</span> student{bulkDeleteResult.deleted !== 1 ? 's' : ''} deleted successfully.
+                                    {bulkDeleteResult.failed > 0 && <span className="text-red-600 ml-1">{bulkDeleteResult.failed} failed.</span>}
+                                </p>
+                                <button
+                                    onClick={() => { setShowBulkDeleteModal(false); setBulkDeleteResult(null) }}
+                                    className="mt-5 px-6 py-2 bg-gray-800 text-white text-sm font-medium rounded-lg hover:bg-gray-700 transition-colors"
+                                >Close</button>
+                            </div>
+                        ) : (
+                            <>
+                                {/* Filter rows */}
+                                <div className="grid grid-cols-2 gap-3">
+                                    {/* Faculty */}
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-600 mb-1">Faculty</label>
+                                        <select
+                                            value={bulkFilters.faculty}
+                                            onChange={e => setBulkFilters(p => ({ ...p, faculty: e.target.value }))}
+                                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-300 bg-white"
+                                        >
+                                            <option value="">All Faculties</option>
+                                            {Array.from(new Set((allstds || []).map(s => getMainDept(s.enrolmentNo)).filter(Boolean))).sort().map(f => (
+                                                <option key={f} value={f}>{DEPARTMENT_MAP[f] || f}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    {/* Batch / Intake Year */}
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-600 mb-1">Batch (Intake Year)</label>
+                                        <select
+                                            value={bulkFilters.batch}
+                                            onChange={e => setBulkFilters(p => ({ ...p, batch: e.target.value }))}
+                                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-300 bg-white"
+                                        >
+                                            <option value="">All Batches</option>
+                                            {Array.from(new Set((allstds || []).map(s => getYear(s.enrolmentNo)).filter(Boolean))).sort().map(y => (
+                                                <option key={y} value={y}>20{y}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    {/* Gender */}
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-600 mb-1">Gender</label>
+                                        <select
+                                            value={bulkFilters.gender}
+                                            onChange={e => setBulkFilters(p => ({ ...p, gender: e.target.value }))}
+                                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-300 bg-white"
+                                        >
+                                            <option value="">All Genders</option>
+                                            <option value="Male">Male</option>
+                                            <option value="Female">Female</option>
+                                            <option value="REV">REV</option>
+                                        </select>
+                                    </div>
+                                    {/* Assignment Status */}
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-600 mb-1">Assignment Status</label>
+                                        <select
+                                            value={bulkFilters.assignmentStatus}
+                                            onChange={e => setBulkFilters(p => ({ ...p, assignmentStatus: e.target.value }))}
+                                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-300 bg-white"
+                                        >
+                                            <option value="">All</option>
+                                            <option value="Assigned">Assigned</option>
+                                            <option value="Unassigned">Unassigned</option>
+                                        </select>
+                                    </div>
+                                    {/* Hostel */}
+                                    <div className="col-span-2">
+                                        <label className="block text-xs font-semibold text-gray-600 mb-1">Hostel</label>
+                                        <select
+                                            value={bulkFilters.hostel}
+                                            onChange={e => setBulkFilters(p => ({ ...p, hostel: e.target.value }))}
+                                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-300 bg-white"
+                                        >
+                                            <option value="">All Hostels</option>
+                                            {(allHostels || []).map(h => (
+                                                <option key={h._id} value={h._id}>{h.name || h.hostelID}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                {/* Match preview */}
+                                <div className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium ${bulkDeleteMatches.length === 0 ? 'bg-gray-50 text-gray-500' : 'bg-red-50 text-red-700 border border-red-200'
+                                    }`}>
+                                    <span className="text-2xl font-bold">{bulkDeleteMatches.length}</span>
+                                    <span>student{bulkDeleteMatches.length !== 1 ? 's' : ''} match the selected filters and will be deleted.</span>
+                                </div>
+
+                                {/* Warning */}
+                                {bulkDeleteMatches.length > 0 && (
+                                    <p className="text-xs text-gray-500 flex items-start gap-1.5">
+                                        <span className="text-amber-500 mt-0.5">⚠</span>
+                                        This action is permanent and cannot be undone. All hostel assignments for these students will also be removed.
+                                    </p>
+                                )}
+
+                                {/* Actions */}
+                                <div className="flex justify-end gap-3 pt-1">
+                                    <button
+                                        onClick={() => { setShowBulkDeleteModal(false); setBulkDeleteResult(null) }}
+                                        className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                                    >Cancel</button>
+                                    <button
+                                        onClick={handleBulkDelete}
+                                        disabled={bulkDeleteMatches.length === 0 || bulkDeleting}
+                                        className="px-4 py-2 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
+                                    >
+                                        {bulkDeleting ? (
+                                            <><span className="animate-spin inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full" /> Deleting...</>
+                                        ) : (
+                                            <>🗑 Delete {bulkDeleteMatches.length} Student{bulkDeleteMatches.length !== 1 ? 's' : ''}</>
+                                        )}
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </div>
+            </div>
+        )}
+    </>)
 }
 
 export default AllStudents

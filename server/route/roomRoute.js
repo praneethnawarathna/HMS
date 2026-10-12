@@ -17,4 +17,8 @@ router.get('/warden-Rooms', authMiddleware, checkPermission('warden-rooms'), Roo
 
 router.post('/student-assign-to-rooms', authMiddleware, checkPermission('student-assign-to-rooms'), RoomController.stundetassigntoroom)
 
+router.get('/available-students/:id', authMiddleware, RoomController.getAvailableStudentsForRoom)
+
+router.delete('/delete-room/:id', authMiddleware, checkPermission('delete-room'), RoomController.deleteRoom)
+
 module.exports = router;

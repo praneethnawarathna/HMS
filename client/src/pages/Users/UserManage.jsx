@@ -1,12 +1,29 @@
 import React, { useEffect, useState } from 'react';
 import { FaUsers } from 'react-icons/fa6';
 import axios from 'axios';
-import { Link } from 'react-router-dom';
+import ActionButtons from '../../components/Buttons/ActionButtons';
+import DefaultInput from '../../components/Form/DefaultInput';
+import DefaultBtn from '../../components/Buttons/DefaultBtn';
+import Dropdown from '../../components/Form/Dropdown';
 
 const UserManage = () => {
   const [users, setUsers] = useState([]);
+  const [roles, setRoles] = useState([]);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  // Edit modal state
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingUser, setEditingUser] = useState({
+    _id: '',
+    username: '',
+    email: '',
+    password: '',
+    emailVerified: false,
+    active: false,
+    roleID: '',
+  });
 
   const token = localStorage.getItem('login');
 
@@ -16,12 +33,104 @@ const UserManage = () => {
         headers: { Authorization: `Bearer ${token}` },
       })
       .then((res) => setUsers(res.data.Result || []))
-      .catch((err) => setError(err.message || 'Failed to fetch users'))
+      .catch((err) => setError(err.message || 'Failed to fetch users'));
+  }, [token]);
+
+  const fetchRoles = React.useCallback(() => {
+    axios
+      .get(import.meta.env.VITE_APP_API + '/auth/view-all-role', {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      .then((res) => setRoles(res.data.Result || []))
+      .catch((err) => console.error('Error fetching roles:', err));
   }, [token]);
 
   useEffect(() => {
-    if (token) fetchUsers();
-  }, [token, fetchUsers]);
+    if (token) {
+      fetchUsers();
+      fetchRoles();
+    }
+  }, [token, fetchUsers, fetchRoles]);
+
+  const handleEditUser = (user) => {
+    const currentRoleId = user.roles?.length > 0
+      ? (typeof user.roles[0] === 'string' ? user.roles[0] : user.roles[0]._id)
+      : '';
+    setEditingUser({
+      _id: user._id,
+      username: user.username || '',
+      email: user.email || '',
+      emailVerified: user.emailVerified || false,
+      active: user.active || false,
+      roleID: currentRoleId,
+    });
+    setShowEditModal(true);
+    setError(null);
+    setSuccess(null);
+  };
+
+  const submitEditUser = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      // Update username, email & password (if provided)
+      const updateData = { username: editingUser.username, email: editingUser.email };
+      if (editingUser.password && editingUser.password.trim()) {
+        updateData.password = editingUser.password.trim();
+      }
+
+      await axios.post(
+        `${import.meta.env.VITE_APP_API}/user/update-user/${editingUser._id}`,
+        updateData,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      // Update email verification status
+      const currentUser = users.find(u => u._id === editingUser._id);
+      if (currentUser && currentUser.emailVerified !== editingUser.emailVerified) {
+        await axios.post(
+          `${import.meta.env.VITE_APP_API}/user/verify-user-email/${editingUser._id}`,
+          null,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+      }
+
+      // Update active status
+      if (currentUser && currentUser.active !== editingUser.active) {
+        await axios.post(
+          `${import.meta.env.VITE_APP_API}/user/update-user-status/${editingUser._id}`,
+          null,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+      }
+
+      // Update role if changed
+      if (editingUser.roleID) {
+        await axios.post(
+          `${import.meta.env.VITE_APP_API}/user/update-user-role`,
+          { userID: editingUser._id, roleID: editingUser.roleID },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+      }
+
+      setSuccess('User updated successfully');
+      setShowEditModal(false);
+      fetchUsers();
+    } catch (err) {
+      console.error('Error updating user:', err);
+      setError('Failed to update user');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const cancelEditUser = () => {
+    setShowEditModal(false);
+    setEditingUser({ _id: '', username: '', email: '', password: '', emailVerified: false, active: false, roleID: '' });
+    setError(null);
+  };
 
   const handleDeleteUser = async (userId) => {
     if (!window.confirm('Delete this user? This will also remove any linked student data.')) return;
@@ -107,15 +216,85 @@ const UserManage = () => {
                     <span className="uppercase bg-red-100 text-red-700 text-xs font-semibold px-3 py-1 rounded-full">Deactive</span>
                   )}
                 </td>
-                <td className="px-6 py-4 flex gap-3">
-                  <Link to={`/Dashboard/View-user/${user._id}`} className="text-[#6b0f14] font-medium hover:underline">View</Link>
-                  <button onClick={() => handleDeleteUser(user._id)} className="text-red-600 hover:text-red-800 font-medium">Delete</button>
+                <td className="px-6 py-4">
+                  <ActionButtons
+                    onEdit={() => handleEditUser(user)}
+                    onDelete={() => handleDeleteUser(user._id)}
+                    editTitle="Edit user details"
+                    deleteTitle="Delete this user"
+                    showLabels={false}
+                    size="sm"
+                  />
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {/* Edit User Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-2xl w-full max-w-lg shadow-2xl">
+            <h3 className="text-lg font-semibold text-[#6b0f14] mb-4">Edit User</h3>
+            <form onSubmit={submitEditUser} className="grid grid-cols-1 gap-4">
+              <DefaultInput
+                label="Username"
+                type="text"
+                value={editingUser.username}
+                onChange={(e) => setEditingUser(prev => ({ ...prev, username: e.target.value }))}
+              />
+              <DefaultInput
+                label="Email"
+                type="email"
+                value={editingUser.email}
+                onChange={(e) => setEditingUser(prev => ({ ...prev, email: e.target.value }))}
+              />
+              <DefaultInput
+                label="Password (optional)"
+                type="password"
+                placeholder="Leave blank to keep unchanged"
+                value={editingUser.password || ''}
+                onChange={(e) => setEditingUser(prev => ({ ...prev, password: e.target.value }))}
+              />
+              <Dropdown
+                label="Role"
+                name="roleID"
+                value={editingUser.roleID}
+                onChange={(e) => setEditingUser(prev => ({ ...prev, roleID: e.target.value }))}
+                options={roles.map(role => ({
+                  label: role.name,
+                  value: role._id,
+                }))}
+              />
+              <div className="flex items-center gap-6">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={editingUser.emailVerified}
+                    onChange={(e) => setEditingUser(prev => ({ ...prev, emailVerified: e.target.checked }))}
+                    className="w-4 h-4 accent-[#6b0f14]"
+                  />
+                  <span className="font-medium text-sm">Email Verified</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={editingUser.active}
+                    onChange={(e) => setEditingUser(prev => ({ ...prev, active: e.target.checked }))}
+                    className="w-4 h-4 accent-[#6b0f14]"
+                  />
+                  <span className="font-medium text-sm">Active</span>
+                </label>
+              </div>
+              <div className="flex gap-3 justify-end mt-2">
+                <DefaultBtn type="button" label="Cancel" onClick={cancelEditUser} className="bg-gray-500" />
+                <DefaultBtn type="submit" label={loading ? 'Saving...' : 'Save Changes'} disabled={loading} />
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
