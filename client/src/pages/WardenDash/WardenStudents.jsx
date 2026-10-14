@@ -29,7 +29,7 @@ const WardenStudents = () => {
                 setLoading(true);
                 const url = `${import.meta.env.VITE_APP_API}/hostel/warden-students`;
                 console.log('Fetching warden students from:', url);
-                
+
                 const res = await axios.get(url, {
                     headers: {
                         Authorization: `Bearer ${token}`,
@@ -37,7 +37,7 @@ const WardenStudents = () => {
                 });
 
                 console.log('API Response:', res.data);
-                
+
                 if (res.data.message) {
                     setError(res.data.message);
                     setStudents([]);
@@ -58,8 +58,8 @@ const WardenStudents = () => {
     const filteredStudents = students.filter(({ student }) => {
         const term = searchTerm.toLowerCase();
         return (
-            student.nic?.toLowerCase().includes(term) ||
-            student.enrolmentNo?.toLowerCase().includes(term)
+            student.enrolmentNo?.toLowerCase().includes(term) ||
+            student.name?.toLowerCase().includes(term)
         );
     });
 
@@ -77,7 +77,7 @@ const WardenStudents = () => {
 
     // Calculate statistics
     const stats = useMemo(() => {
-        const assigned = students.filter(({ allocations }) => 
+        const assigned = students.filter(({ allocations }) =>
             allocations?.some(a => a.active && a.roomId)
         ).length;
         const unassigned = students.length - assigned;
@@ -135,11 +135,11 @@ const WardenStudents = () => {
             </div>
 
             <DefaultInput
-                label="Search by NIC or Enrolment No"
+                label="Search by Enrolment No"
                 name="search"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Type NIC or Enrolment No"
+                placeholder="Type Enrolment No"
             />
 
             <div className="-mt-4 mb-4 flex">
@@ -168,8 +168,6 @@ const WardenStudents = () => {
                         <tr>
                             <th className="px-6 py-4 font-semibold">#</th>
                             <th className="px-6 py-4 font-semibold">Enrolment No</th>
-                            
-                            <th className="px-6 py-4 font-semibold">NIC</th>
                             <th className="px-6 py-4 font-semibold">Gender</th>
                             <th className="px-6 py-4 font-semibold">Home Town</th>
                             <th className="px-6 py-4 font-semibold">Distance</th>
@@ -178,65 +176,70 @@ const WardenStudents = () => {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                        {paginatedStudents.map(({ student, allocations }, idx) => {
-                            const gender = (student.sex || '').toLowerCase();
-                            const activeAllocation = allocations?.find(a => a.active && a.roomId);
-                            const hasRoom = !!activeAllocation;
-                            
-                            return (
-                                <tr
-                                    key={student._id || idx}
-                                    className="hover:bg-[#fefaf0] transition-all duration-150"
-                                >
-                                    <td className="px-6 py-4 font-medium text-gray-800">
-                                        {(currentPage - 1) * recordsPerPage + idx + 1}
-                                    </td>
-                                    <td className="px-6 py-4">{student.enrolmentNo || '-'}</td>
-                                    
-                                    <td className="px-6 py-4">{student.nic || '-'}</td>
-                                    <td className="px-6 py-4">
-                                        {gender === 'male' ? (
-                                            <span className="flex uppercase bg-[#fdf6e3] text-[#6b0f14] text-xs font-semibold px-3 py-1 rounded-full gap-1 items-center">
-                                                <FaMale className="h-4 w-auto" />
-                                                Male
-                                            </span>
-                                        ) : gender === 'female' ? (
-                                            <span className="flex uppercase bg-pink-100 text-pink-700 text-xs font-semibold px-3 py-1 rounded-full gap-1 items-center">
-                                                <FaFemale className="h-4 w-auto" />
-                                                Female
-                                            </span>
-                                        ) : (
-                                            <span className="uppercase bg-gray-100 text-gray-600 text-xs font-semibold px-3 py-1 rounded-full">
-                                                Unknown
-                                            </span>
-                                        )}
-                                    </td>
-                                    <td className="px-6 py-4">{student.address3 || '-'}</td>
-                                    <td className="px-6 py-4">{student.distance ?? '-'} km</td>
-                                    <td className="px-6 py-4">
-                                        {hasRoom ? (
-                                            <span className="font-medium text-gray-800">
-                                                {activeAllocation.roomId?.roomNo || activeAllocation.roomId?.roomID || '-'}
-                                            </span>
-                                        ) : (
-                                            <span className="text-gray-400">-</span>
-                                        )}
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        {hasRoom ? (
-                                            <span className="uppercase bg-green-100 text-green-700 text-xs font-semibold px-3 py-1 rounded-full">
-                                                Assigned
-                                            </span>
-                                        ) : (
-                                            <span className="uppercase bg-red-100 text-red-700 text-xs font-semibold px-3 py-1 rounded-full">
-                                                Not Assigned
-                                            </span>
-                                        )}
-                                    </td>
-                                </tr>
-                            );
-                        })}
+                        {paginatedStudents.length === 0 ? (
+                            <tr>
+                                <td colSpan="7" className="px-6 py-10 text-center text-gray-400 text-sm">
+                                    No students found for this hostel.
+                                </td>
+                            </tr>
+                        ) : (
+                            paginatedStudents.map(({ student, allocations }, idx) => {
+                                const gender = (student.sex || '').toLowerCase();
+                                const activeAllocation = allocations?.find(a => a.active && a.roomId);
+                                const hasRoom = !!activeAllocation;
 
+                                return (
+                                    <tr
+                                        key={student._id || idx}
+                                        className="hover:bg-[#fefaf0] transition-all duration-150"
+                                    >
+                                        <td className="px-6 py-4 font-medium text-gray-800">
+                                            {(currentPage - 1) * recordsPerPage + idx + 1}
+                                        </td>
+                                        <td className="px-6 py-4">{student.enrolmentNo || '-'}</td>
+                                        <td className="px-6 py-4">
+                                            {gender === 'male' ? (
+                                                <span className="flex uppercase bg-[#fdf6e3] text-[#6b0f14] text-xs font-semibold px-3 py-1 rounded-full gap-1 items-center">
+                                                    <FaMale className="h-4 w-auto" />
+                                                    Male
+                                                </span>
+                                            ) : gender === 'female' ? (
+                                                <span className="flex uppercase bg-pink-100 text-pink-700 text-xs font-semibold px-3 py-1 rounded-full gap-1 items-center">
+                                                    <FaFemale className="h-4 w-auto" />
+                                                    Female
+                                                </span>
+                                            ) : (
+                                                <span className="uppercase bg-gray-100 text-gray-600 text-xs font-semibold px-3 py-1 rounded-full">
+                                                    {student.sex || 'Unknown'}
+                                                </span>
+                                            )}
+                                        </td>
+                                        <td className="px-6 py-4">{student.address3 || '-'}</td>
+                                        <td className="px-6 py-4">{student.distance ?? '-'} km</td>
+                                        <td className="px-6 py-4">
+                                            {hasRoom ? (
+                                                <span className="font-medium text-gray-800">
+                                                    {activeAllocation.roomId?.roomNo || activeAllocation.roomId?.roomID || '-'}
+                                                </span>
+                                            ) : (
+                                                <span className="text-gray-400">-</span>
+                                            )}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            {hasRoom ? (
+                                                <span className="uppercase bg-green-100 text-green-700 text-xs font-semibold px-3 py-1 rounded-full">
+                                                    Assigned
+                                                </span>
+                                            ) : (
+                                                <span className="uppercase bg-red-100 text-red-700 text-xs font-semibold px-3 py-1 rounded-full">
+                                                    Not Assigned
+                                                </span>
+                                            )}
+                                        </td>
+                                    </tr>
+                                );
+                            })
+                        )}
                     </tbody>
                 </table>
             </div>

@@ -90,10 +90,19 @@ const checkPermission = (requiredPermission) => {
                 // View permissions that admins and directors should always have
                 'view-all-rooms', 'get-one-room', 'warden-rooms', 'student-assign-to-rooms',
                 'view-one-hostel', 'get-all-hostels', 'create-hostel', 'update-room-count',
-                'assign-new-warden', 'assign-new-warden', 'get-all-warden', 'student-assign-hostel',
+                'assign-new-warden', 'get-all-warden', 'student-assign-hostel',
                 'get-warden-students', 'view-all-students', 'get-one-student', 'delete-hostel',
                 'view-all-users', 'view-one-user', 'delete-user',
                 'view-all-wardens', 'get-one-warden',
+                // Student CRUD — admin/director must always be able to list, view, edit and create students
+                'get-all-students-auth', 'get-student-byID', 'update-Student',
+                'create-student-manually', 'create-student-sheet',
+                // Room management
+                'get-all-rooms', 'available-students',
+                // Warden management
+                'update-warden', 'delete-warden',
+                // Reports / eligibility
+                'view-eligibility', 'get-eligible-students',
             ];
             if (adminAllowed.includes(requiredPermission)) {
                 const roleNames = user.roles.map(r => r.name);

@@ -658,10 +658,13 @@ const HostelController = {
 
             const hostels = assignments.map(assignment => normalizeHostel(assignment.hostelId)).filter(Boolean);
 
+            // Fetch ALL allocations for the warden's hostel(s) — not just active ones.
+            // This ensures the warden can see every student who has ever been allocated here,
+            // including those temporarily unassigned from a room (active: false).
             const allocations = await Allocation.find({
                 hostelID: { $in: hostelIds },
-                active: true,
             })
+                .sort({ inDate: -1, _id: -1 })  // most recent first so dedup picks the latest
                 .populate('roomId')
                 .populate('hostelID', 'hostelID name gender');
 
@@ -687,12 +690,17 @@ const HostelController = {
                 }
             });
 
-            const students = await Student.find({
-                $or: [
-                    { _id: { $in: Array.from(objectIds) } },
-                    { enrolmentNo: { $in: Array.from(enrolmentNos) } }
-                ]
-            });
+            const studentQueries = [];
+            if (objectIds.size > 0) {
+                studentQueries.push({ _id: { $in: Array.from(objectIds) } });
+            }
+            if (enrolmentNos.size > 0) {
+                studentQueries.push({ enrolmentNo: { $in: Array.from(enrolmentNos) } });
+            }
+
+            const students = studentQueries.length > 0
+                ? await Student.find(studentQueries.length === 1 ? studentQueries[0] : { $or: studentQueries })
+                : [];
 
             const studentsById = new Map();
             const studentsByEnrolment = new Map();
