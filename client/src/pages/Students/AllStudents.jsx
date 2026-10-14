@@ -342,8 +342,8 @@ const AllStudents = () => {
 
         const filtered = (Array.isArray(allstds) ? allstds : []).filter(student => {
             const matchesSearch =
-                student.nic?.toLowerCase().includes(term) ||
-                student.enrolmentNo?.toLowerCase().includes(term)
+                student.enrolmentNo?.toLowerCase().includes(term) ||
+                student.name?.toLowerCase().includes(term)
 
             const assigned = isStudentAssigned(student)
             const matchesAssigned =
@@ -567,7 +567,7 @@ const AllStudents = () => {
         <div className="mt-8">
             <div className="mb-4 flex flex-wrap items-center gap-6">
                 <DefaultInput
-                    label="Search by NIC or Enrolment No"
+                    label="Search by Enrolment No"
                     name="search"
                     value={searchTerm}
                     onChange={e => setSearchTerm(e.target.value)}
@@ -691,7 +691,6 @@ const AllStudents = () => {
                             <th className="px-6 py-4">#</th>
                             <th className="px-6 py-4">Enrolment No</th>
                             <th className="px-6 py-4">Study Year</th>
-                            <th className="px-6 py-4">NIC</th>
                             <th className="px-6 py-4">Gender</th>
                             <th className="px-6 py-4">Home Town</th>
                             <th className="px-6 py-4">Distance</th>
@@ -710,7 +709,6 @@ const AllStudents = () => {
                                     <td className="px-6 py-4">
                                         {data.dateOfEnrolment ? `Year ${(new Date().getFullYear() - new Date(data.dateOfEnrolment).getFullYear()) + 1}` : ''}
                                     </td>
-                                    <td className="px-6 py-4">{data.nic}</td>
                                     <td className="px-6 py-4">
                                         {data.sex === 'Male' ? (
                                             <span className="flex bg-[#fdf6e3] text-[#6b0f14] text-xs font-semibold px-3 py-1 rounded-full gap-1 items-center">
