@@ -73,11 +73,26 @@ const EligibilityController = {
 
     // ─── Hostel Assignment Page ───
     // Returns eligible students with their current allocation state.
+    // If includeAll=true is passed or no students are explicitly marked eligible,
+    // returns all unassigned/available students so admin can assign them.
     getEligibleForAssignment: async (req, res) => {
         try {
-            const students = await Student.find({
-                eligibilityStatus: { $in: ['Eligible', 'Assigned', true] }
-            }).lean();
+            const { includeAll } = req.query;
+            let query = {};
+            if (includeAll === 'true') {
+                query = {};
+            } else {
+                const explicitEligibleCount = await Student.countDocuments({
+                    eligibilityStatus: { $in: ['Eligible', 'Assigned', true] }
+                });
+                if (explicitEligibleCount > 0) {
+                    query = { eligibilityStatus: { $in: ['Eligible', 'Assigned', true] } };
+                } else {
+                    query = {};
+                }
+            }
+
+            const students = await Student.find(query).lean();
 
             const activeAllocations = await Allocation.find({
                 studentId: { $in: students.map(student => student._id) },

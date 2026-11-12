@@ -9,6 +9,7 @@ import DefaultInput from '../../components/Form/DefaultInput'
 import { FaFemale, FaMale, FaUserTie } from 'react-icons/fa'
 import Dropdown from '../../components/Form/Dropdown'
 import ActionButtons from '../../components/Buttons/ActionButtons'
+import { getStudentHomeTown, formatDistrict } from '../../utils/studentUtils'
 
 const DEPARTMENT_MAP = {
     A: 'Arts',
@@ -470,7 +471,8 @@ const AllStudents = () => {
         const filtered = (Array.isArray(allstds) ? allstds : []).filter(student => {
             const matchesSearch =
                 student.enrolmentNo?.toLowerCase().includes(term) ||
-                student.name?.toLowerCase().includes(term)
+                student.name?.toLowerCase().includes(term) ||
+                getStudentHomeTown(student)?.toLowerCase().includes(term)
 
             const assigned = isStudentAssigned(student)
             const matchesAssigned =
@@ -903,7 +905,7 @@ const AllStudents = () => {
                                             </span>
                                         )}
                                     </td>
-                                    <td className="px-6 py-4">{data.address3}</td>
+                                    <td className="px-6 py-4">{getStudentHomeTown(data)}</td>
                                     <td className="px-6 py-4">{data.distance} Km</td>
                                     <td className="px-6 py-4">
                                         {isStudentAssigned(data) ? (

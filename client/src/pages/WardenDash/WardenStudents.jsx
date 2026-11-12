@@ -5,6 +5,7 @@ import { FaFemale, FaGraduationCap, FaMale, FaBed, FaUserClock } from 'react-ico
 import DefaultInput from '../../components/Form/DefaultInput';
 import DefaultBtn from '../../components/Buttons/DefaultBtn';
 import { getUserInfoFromToken } from '../../utils/auth';
+import { getStudentHomeTown } from '../../utils/studentUtils';
 
 const WardenStudents = () => {
     const [students, setStudents] = useState([]); // Array of { student, allocations }
@@ -214,7 +215,7 @@ const WardenStudents = () => {
                                                 </span>
                                             )}
                                         </td>
-                                        <td className="px-6 py-4">{student.address3 || '-'}</td>
+                                        <td className="px-6 py-4">{getStudentHomeTown(student)}</td>
                                         <td className="px-6 py-4">{student.distance ?? '-'} km</td>
                                         <td className="px-6 py-4">
                                             {hasRoom ? (

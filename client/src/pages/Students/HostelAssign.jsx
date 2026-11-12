@@ -4,6 +4,7 @@ import Dropdown from '../../components/Form/Dropdown'
 import { FaFemale, FaMale, FaUserTie } from 'react-icons/fa'
 import { Link } from 'react-router-dom'
 import axios from 'axios'
+import { getStudentHomeTown } from '../../utils/studentUtils'
 
 
 
@@ -23,6 +24,7 @@ const HostelAssign = () => {
         gender: '',
         intakeYear: '',
         department: '',
+        studyYear: '',
     })
 
     // Excel import filter from DB
@@ -217,6 +219,14 @@ const HostelAssign = () => {
             }))
     }, [getallstudents])
 
+    const studyYearOptions = [
+        { label: 'All Years', value: '' },
+        { label: '1st Year', value: '1st Year' },
+        { label: '2nd Year', value: '2nd Year' },
+        { label: '3rd Year', value: '3rd Year' },
+        { label: '4th Year', value: '4th Year' },
+    ]
+
     const [allhostels, setAllHostels] = useState([])
     const [selectedHostel, setSelectedHostel] = useState('')
     const [selectedStudents, setSelectedStudents] = useState(new Set())
@@ -225,7 +235,7 @@ const HostelAssign = () => {
     const [customSelect, setCustomSelect] = useState('')
 
     useEffect(() => {
-        axios.get(import.meta.env.VITE_APP_API + '/eligibility/eligible-for-assignment', {
+        axios.get(import.meta.env.VITE_APP_API + '/eligibility/eligible-for-assignment?includeAll=true', {
             headers: { Authorization: `Bearer ${token}` }
         })
             .then(res => {
@@ -283,7 +293,8 @@ const HostelAssign = () => {
             const searchTerm = filters.search.toLowerCase()
             filtered = filtered.filter(student =>
             (student.enrolmentNo?.toLowerCase().includes(searchTerm) ||
-                student.nic?.toLowerCase().includes(searchTerm))
+                student.nic?.toLowerCase().includes(searchTerm) ||
+                getStudentHomeTown(student)?.toLowerCase().includes(searchTerm))
             )
         }
 
@@ -300,6 +311,10 @@ const HostelAssign = () => {
 
         if (filters.intakeYear !== '') {
             filtered = filtered.filter(student => getIntakeYearCode(student.enrolmentNo) === filters.intakeYear)
+        }
+
+        if (filters.studyYear !== '') {
+            filtered = filtered.filter(student => (student.studyYear || '1st Year') === filters.studyYear)
         }
 
         if (filters.department !== '') {
@@ -449,7 +464,7 @@ const HostelAssign = () => {
                 }
 
                 setSelectedStudents(new Set())
-                axios.get(import.meta.env.VITE_APP_API + '/eligibility/eligible-for-assignment', {
+                axios.get(import.meta.env.VITE_APP_API + '/eligibility/eligible-for-assignment?includeAll=true', {
                     headers: { Authorization: `Bearer ${token}` }
                 })
                     .then(res => {
@@ -479,18 +494,18 @@ const HostelAssign = () => {
             ) : importInfo ? (
                 <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800 flex items-center justify-between gap-4">
                     <span>
-                        📋 <strong>Filtered by Excel Import:</strong> Showing <strong>{importedFilter.length}</strong> eligible students from the imported list (uploaded on {new Date(importInfo.importedAt).toLocaleString()}).
+                        <strong>Filtered by Excel Import:</strong> Showing <strong>{importedFilter.length}</strong> eligible students from the imported list (uploaded on {new Date(importInfo.importedAt).toLocaleString()}).
                         &nbsp;Go to <strong>Assign via Excel</strong> to change or clear the list.
                     </span>
                 </div>
             ) : (
-                <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800">
-                    ✅ No Excel import active — showing <strong>all eligible students</strong>. Use <strong>Assign via Excel</strong> to filter by an uploaded list.
+                <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-sm text-emerald-800">
+                    No Excel import filter active — showing all eligible unassigned students. Use <strong>Assign via Excel</strong> to filter by an uploaded list.
                 </div>
             )}
 
-            <div className="flex flex-nowrap gap-4 mt-4 max-w-5xl overflow-x-auto no-scrollbar pb-2">
-                <div className="flex-grow min-w-[250px]">
+            <div className="flex flex-wrap lg:flex-nowrap gap-3 mt-4 w-full pb-2">
+                <div className="flex-grow min-w-[220px]">
                     <DefaultInput
                         label="Search Enrolment No / NIC"
                         name="search"
@@ -506,7 +521,7 @@ const HostelAssign = () => {
                     onChange={(val) => setFilters(prev => ({ ...prev, department: val }))}
                 />
 
-                <div className="min-w-[150px] shrink-0">
+                <div className="min-w-[130px] shrink-0">
                     <Dropdown
                         label="Gender"
                         name="gender"
@@ -520,7 +535,7 @@ const HostelAssign = () => {
                     />
                 </div>
 
-                <div className="min-w-[150px] shrink-0">
+                <div className="min-w-[130px] shrink-0">
                     <Dropdown
                         label="Intake Year"
                         name="intakeYear"
@@ -530,7 +545,17 @@ const HostelAssign = () => {
                     />
                 </div>
 
-                <div className="min-w-[150px] shrink-0">
+                <div className="min-w-[130px] shrink-0">
+                    <Dropdown
+                        label="Study Year"
+                        name="studyYear"
+                        value={filters.studyYear}
+                        onChange={handleFilterChange}
+                        options={studyYearOptions}
+                    />
+                </div>
+
+                <div className="min-w-[130px] shrink-0">
                     <DefaultInput
                         label="Distance ≥"
                         type="number"
@@ -543,7 +568,7 @@ const HostelAssign = () => {
                 </div>
             </div>
 
-            <div className="max-w-3xl">
+            <div className="w-full max-w-2xl mt-2">
                 <Dropdown
                     label="Select Hostel"
                     name="hostel"
@@ -582,20 +607,20 @@ const HostelAssign = () => {
                 })()}
             </div>
 
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mt-3 max-w-3xl">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full">
-                    <label className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mt-4 w-full">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
                         <input type="checkbox" className="h-4 w-4 rounded border-gray-300 text-[#6b0f14] focus:ring-2 focus:ring-[#6b0f14]/30 transition" checked={selectAllVisible} onChange={handleSelectAllChange} />
-                        <span className="text-sm">Select All </span>
+                        <span className="text-sm font-medium text-gray-700">Select All</span>
                     </label>
 
                     <div className="flex items-center gap-2">
                         <label className="text-sm text-gray-600">Select rows:</label>
-                        <select value={selectCount} onChange={handleSelectCountChange} className="border px-2 py-1.5 text-sm rounded-md focus:outline-none focus:ring-2 focus:ring-[#6b0f14]/30 transition w-24">
+                        <select value={selectCount} onChange={handleSelectCountChange} className="border px-2 py-1.5 text-sm rounded-md focus:outline-none focus:ring-2 focus:ring-[#6b0f14]/30 transition w-24 bg-white">
                             <option value="Custom">Custom</option>
                             <option value="Random">Random</option>
                         </select>
-                        <input type="number" min="1" value={customSelect} onChange={handleCustomSelectChange} placeholder="Amount" className="border px-2 py-1.5 text-sm rounded-md w-20 focus:outline-none focus:ring-2 focus:ring-[#6b0f14]/30 transition" />
+                        <input type="number" min="1" value={customSelect} onChange={handleCustomSelectChange} placeholder="Amount" className="border px-2 py-1.5 text-sm rounded-md w-20 focus:outline-none focus:ring-2 focus:ring-[#6b0f14]/30 transition bg-white" />
                         {selectCount === 'Random' && (
                             <button onClick={() => handleCustomSelectChange({ target: { value: customSelect } })} className="bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-700 px-2 py-1.5 rounded-md text-sm font-medium transition">
                                 Reroll
@@ -604,10 +629,10 @@ const HostelAssign = () => {
                     </div>
                 </div>
 
-                <div className="w-full sm:w-auto mt-3 sm:mt-0 flex justify-end">
+                <div className="w-full sm:w-auto flex justify-end">
                     <button
                         onClick={handleAssignSubmit}
-                        className="w-full sm:w-auto bg-gradient-to-r from-[#6b0f14] to-[#4f0a0f] text-white px-5 py-2 rounded-lg font-semibold shadow-lg hover:scale-[1.02] transform transition will-change-transform disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-4 focus:ring-[#6b0f14]/25"
+                        className="w-full sm:w-auto bg-gradient-to-r from-[#6b0f14] to-[#4f0a0f] text-white px-6 py-2 rounded-lg font-semibold shadow hover:bg-[#520b0f] transition disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-4 focus:ring-[#6b0f14]/25"
                         disabled={!selectedHostel || selectedStudents.size === 0}
                     >
                         Assign Selected Students
@@ -615,25 +640,27 @@ const HostelAssign = () => {
                 </div>
             </div>
 
-            <div className="mt-2 max-w-3xl text-sm text-gray-600">
-                <span className="text-sm mr-4">Filtered: <span className="font-semibold">{filteredStudents.length}</span></span>
-                <span className="text-sm mr-4">Total: <span className="font-semibold">{getallstudents.length}</span></span>
-                <span className="text-sm">Selected: <span className="font-semibold">{selectedStudents.size}</span></span>
+            <div className="mt-3 w-full flex items-center justify-between text-sm text-gray-600">
+                <div className="flex items-center gap-4">
+                    <span>Filtered: <strong className="text-gray-900">{filteredStudents.length}</strong></span>
+                    <span>Total: <strong className="text-gray-900">{getallstudents.length}</strong></span>
+                    <span>Selected: <strong className="text-[#6b0f14]">{selectedStudents.size}</strong></span>
+                </div>
             </div>
 
-            <div className="overflow-x-auto rounded-2xl shadow-lg mt-4 max-w-7xl">
-                <table className="min-w-full text-sm text-left text-gray-600 bg-white">
+            <div className="overflow-x-auto rounded-2xl shadow-lg mt-4 w-full border border-gray-100">
+                <table className="w-full text-sm text-left text-gray-600 bg-white">
                     <thead className="text-xs uppercase bg-[#fdf6e3] text-[#6b0f14]">
                         <tr>
-                            <th className="px-3 sm:px-6 py-3 font-semibold">Select</th>
-                            <th className="px-3 sm:px-6 py-3 font-semibold">#</th>
-                            <th className="px-3 sm:px-6 py-3 font-semibold">Enrolment No</th>
-                            <th className="hidden md:table-cell px-6 py-3 font-semibold">NIC</th>
-                            <th className="px-3 sm:px-6 py-3 font-semibold">Gender</th>
-                            <th className="hidden md:table-cell px-6 py-3 font-semibold">Home Town</th>
-                            <th className="px-3 sm:px-6 py-3 font-semibold">Distance</th>
-                            <th className="hidden md:table-cell px-6 py-3 font-semibold">Hostel Assigned</th>
-                            <th className="px-3 sm:px-6 py-3 font-semibold">Action</th>
+                            <th className="px-4 py-4 font-semibold text-center w-12">Select</th>
+                            <th className="px-4 py-4 font-semibold text-center w-12">#</th>
+                            <th className="px-6 py-4 font-semibold whitespace-nowrap">Enrolment No</th>
+                            <th className="px-6 py-4 font-semibold whitespace-nowrap">Study Year</th>
+                            <th className="px-6 py-4 font-semibold whitespace-nowrap">Gender</th>
+                            <th className="px-6 py-4 font-semibold whitespace-nowrap">Home Town</th>
+                            <th className="px-6 py-4 font-semibold whitespace-nowrap">Distance</th>
+                            <th className="px-6 py-4 font-semibold whitespace-nowrap text-center">Hostel Assigned</th>
+                            <th className="px-6 py-4 font-semibold whitespace-nowrap text-center">Action</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
@@ -648,7 +675,7 @@ const HostelAssign = () => {
                                             : 'hover:bg-[#fefaf0]'
                                             }`}
                                     >
-                                        <td className="px-3 sm:px-6 py-3">
+                                        <td className="px-4 py-4 text-center">
                                             <input
                                                 type="checkbox"
                                                 checked={selectedStudents.has(data._id)}
@@ -657,42 +684,52 @@ const HostelAssign = () => {
                                                     handleCheckboxChange(data._id)
                                                 }}
                                                 disabled={data.isAssign}
-                                                className="h-4 w-4"
+                                                className="h-4 w-4 rounded border-gray-300 text-[#6b0f14] focus:ring-[#6b0f14]"
                                             />
                                         </td>
-                                        <td className="px-3 sm:px-6 py-3 font-medium text-gray-800">{index + 1}</td>
-                                        <td className="px-3 sm:px-6 py-3 truncate">{data.enrolmentNo}</td>
-                                        <td className="hidden md:table-cell px-6 py-3 truncate">{data.nic}</td>
-                                        <td className="px-3 sm:px-6 py-3">
+                                        <td className="px-4 py-4 text-center font-medium text-gray-800">{index + 1}</td>
+                                        <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">{data.enrolmentNo}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-blue-50 text-blue-800 border border-blue-200">
+                                                {data.studyYear || '1st Year'}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
                                             {data.sex === 'Male' ? (
-                                                <span className="flex uppercase bg-[#fdf6e3] text-[#6b0f14] text-xs font-semibold px-2 py-1 rounded-full items-center">
-                                                    <FaMale className='h-4 w-auto mr-1' /> Male
+                                                <span className="inline-flex uppercase bg-[#fdf6e3] text-[#6b0f14] text-xs font-semibold px-2.5 py-1 rounded-full items-center">
+                                                    <FaMale className='h-3.5 w-auto mr-1' /> Male
                                                 </span>
                                             ) : data.sex === 'Female' ? (
-                                                <span className="flex uppercase bg-pink-100 text-pink-700 text-xs font-semibold px-2 py-1 rounded-full items-center">
-                                                    <FaFemale className='h-4 w-auto mr-1' /> Female
+                                                <span className="inline-flex uppercase bg-pink-100 text-pink-700 text-xs font-semibold px-2.5 py-1 rounded-full items-center">
+                                                    <FaFemale className='h-3.5 w-auto mr-1' /> Female
                                                 </span>
                                             ) : (
-                                                <span className="flex uppercase bg-orange-100 text-orange-700 text-xs font-semibold px-2 py-1 rounded-full items-center">
-                                                    <FaUserTie className='h-4 w-auto mr-1' /> {data.sex || 'REV'}
+                                                <span className="inline-flex uppercase bg-orange-100 text-orange-700 text-xs font-semibold px-2.5 py-1 rounded-full items-center">
+                                                    <FaUserTie className='h-3.5 w-auto mr-1' /> {data.sex || 'REV'}
                                                 </span>
                                             )}
                                         </td>
-                                        <td className="hidden md:table-cell px-6 py-3 truncate">{data.address3}</td>
-                                        <td className="px-3 sm:px-6 py-3">{data.distance} Km</td>
-                                        <td className="hidden md:table-cell px-6 py-3">
-                                            <span className="uppercase bg-red-100 text-red-700 text-xs font-semibold px-3 py-1 rounded-full">
-                                                Not-Assigned
+                                        <td className="px-6 py-4 whitespace-nowrap">{getStudentHomeTown(data)}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap font-medium">{data.distance ? `${data.distance} Km` : '—'}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-center">
+                                            <span className="uppercase bg-red-100 text-red-700 text-xs font-semibold px-3 py-1 rounded-full whitespace-nowrap">
+                                                Not Assigned
                                             </span>
                                         </td>
-                                        <td className="px-3 sm:px-6 py-3">
-                                            <Link to={`/Dashboard/View-Student/${data._id}`} className="text-[#6b0f14] font-medium hover:underline">View</Link>
+                                        <td className="px-6 py-4 whitespace-nowrap text-center">
+                                            <Link
+                                                to={`/Dashboard/View-Student/${data._id}`}
+                                                onClick={(e) => e.stopPropagation()}
+                                                className="px-3 py-1 text-xs font-semibold text-[#6b0f14] bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-md transition-colors"
+                                            >
+                                                View
+                                            </Link>
                                         </td>
                                     </tr>
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan="9" className="px-6 py-4 text-center text-gray-500">No matching records found.</td>
+                                    <td colSpan="9" className="px-6 py-8 text-center text-gray-500">No matching records found.</td>
                                 </tr>
                             )
                         }

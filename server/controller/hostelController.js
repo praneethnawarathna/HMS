@@ -530,13 +530,8 @@ const HostelController = {
             // Fetch students before proceeding (supporting String & ObjectId)
             const students = await Student.find(buildDualIdFilter('_id', studentIds));
 
-            // Eligibility is stored on Student; current assignment is determined by active allocations.
-            const ineligibleStudent = students.find(s => s.eligibilityStatus !== 'Eligible' && s.eligibilityStatus !== 'Assigned' && s.eligibilityStatus !== true);
-            if (ineligibleStudent) {
-                return res.json({
-                    Status: "Error",
-                    Message: `Student ${ineligibleStudent.name || ineligibleStudent.enrolmentNo || 'Unknown'} is not eligible for hostel assignment.`
-                });
+            if (!students.length) {
+                return res.json({ Status: "Error", Message: "No valid students selected for assignment." });
             }
 
             // Check gender match
@@ -547,7 +542,7 @@ const HostelController = {
             if (mismatch) {
                 return res.json({
                     Status: "Error",
-                    Message: `Gender mismatch: Student ${mismatch.fullName || mismatch.nic || 'Unknown'} (${mismatch.sex}) does not match hostel gender (${hostel.gender})`
+                    Message: `Gender mismatch: Student ${mismatch.fullName || mismatch.name || mismatch.enrolmentNo || mismatch.nic || 'Unknown'} (${mismatch.sex}) does not match hostel gender (${hostel.gender})`
                 });
             }
 

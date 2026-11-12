@@ -9,6 +9,7 @@ import { FaRegCheckSquare } from "react-icons/fa"
 import { BsHouseGearFill } from "react-icons/bs"
 import { MdOutlineDoNotDisturbAlt } from "react-icons/md"
 import { X, Users, UserPlus, Trash2, Search, AlertCircle, Check } from 'lucide-react'
+import { formatDistrict } from '../../utils/studentUtils'
 
 const AllRooms = () => {
     const token = localStorage.getItem('login')
@@ -207,7 +208,8 @@ const AllRooms = () => {
         return (
             (s.name || '').toLowerCase().includes(term) ||
             (s.enrolmentNo || '').toLowerCase().includes(term) ||
-            (s.alDistrict || '').toLowerCase().includes(term)
+            (s.alDistrict || '').toLowerCase().includes(term) ||
+            formatDistrict(s.alDistrict).toLowerCase().includes(term)
         )
     })
 
@@ -542,7 +544,7 @@ const AllRooms = () => {
                                                                     <span>{student.sex}</span>
                                                                 )}
                                                                 {student.alDistrict && (
-                                                                    <span>• {student.alDistrict}</span>
+                                                                    <span>• {formatDistrict(student.alDistrict)}</span>
                                                                 )}
                                                             </div>
                                                         </div>
@@ -603,7 +605,7 @@ const AllRooms = () => {
                                                 <option value="">-- Choose unassigned student ({filteredAvailableStudents.length} available) --</option>
                                                 {filteredAvailableStudents.map(st => (
                                                     <option key={st._id} value={st._id}>
-                                                        {st.name} ({st.enrolmentNo || 'No Reg'}) {st.sex ? `- ${st.sex}` : ''} {st.alDistrict ? `[${st.alDistrict}]` : ''}
+                                                        {st.name} ({st.enrolmentNo || 'No Reg'}) {st.sex ? `- ${st.sex}` : ''} {st.alDistrict ? `[${formatDistrict(st.alDistrict)}]` : ''}
                                                     </option>
                                                 ))}
                                             </select>

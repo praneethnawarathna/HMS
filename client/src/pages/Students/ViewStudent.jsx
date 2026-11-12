@@ -5,6 +5,7 @@ import DefaultBtn from '../../components/Buttons/DefaultBtn';
 import DefaultInput from '../../components/Form/DefaultInput';
 import Dropdown from '../../components/Form/Dropdown';
 import { getUserInfoFromToken } from '../../utils/auth';
+import { getStudentHomeTown, formatDistrictWithCode } from '../../utils/studentUtils';
 
 const ViewStudent = () => {
     const { id } = useParams();
@@ -153,7 +154,8 @@ const ViewStudent = () => {
                     <Detail label="Enrolment No" value={stdData.enrolmentNo} />
                     <Detail label="NIC" value={stdData.nic} />
                     <Detail label="Name" value={stdData.name} />
-                    <Detail label="AL District" value={stdData.alDistrict} />
+                    <Detail label="AL District" value={formatDistrictWithCode(stdData.alDistrict)} />
+                    <Detail label="Home Town" value={getStudentHomeTown(stdData)} />
                     <Detail label="Gender" value={stdData.sex} />
                     <Detail label="Address 1" value={stdData.address1} />
                     <Detail label="Address 2" value={stdData.address2} />
