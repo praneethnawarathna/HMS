@@ -2,10 +2,8 @@ import axios from 'axios';
 import React, { useState } from 'react';
 import * as XLSX from 'xlsx';
 import { Link, useNavigate } from 'react-router-dom';
-;
 import FileInput from '../../components/Form/FileInput';
 import DefaultBtn from '../../components/Buttons/DefaultBtn';
-
 
 const StdCreateSheet = () => {
     const navigate = useNavigate();
@@ -36,7 +34,7 @@ const StdCreateSheet = () => {
 
     const handleDownloadTemplate = () => {
         const headers = [
-            ["No", "Enrolment No.", "Name", "A/L District", "Sex", "ADD1", "ADD2", "ADD3", "Address", "Date of Enrollment"]
+            ["No", "Enrolment No.", "Name", "A/L District", "Sex", "ADD1", "ADD2", "ADD3", "Address", "Date of Enrollment", "Study Year"]
         ];
 
         const ws = XLSX.utils.aoa_to_sheet(headers);
@@ -165,8 +163,9 @@ const StdCreateSheet = () => {
 
             if (res.data.Status === "Success") {
                 const inserted = res.data.insertedCount ?? 0;
+                const updated = res.data.updatedCount ?? 0;
                 const duplicated = res.data.duplicateCount ?? 0;
-                alert(`${res.data.Message}\n\n- Successfully imported: ${inserted} students\n- Skipped (already exist): ${duplicated} students`);
+                alert(`${res.data.Message}\n\n- Successfully imported: ${inserted} new student(s)\n- Updated (existing): ${updated} student(s)\n- Skipped (no ID): ${duplicated} row(s)`);
                 navigate('/Dashboard/Students');
             } else {
                 alert(res.data.Error || "Upload failed");
@@ -243,11 +242,12 @@ const StdCreateSheet = () => {
                                     <th className="px-3 py-2 border-b">ADD3</th>
                                     <th className="px-3 py-2 border-b">Address</th>
                                     <th className="px-3 py-2 border-b">Date of Enrollment</th>
+                                    <th className="px-3 py-2 border-b">Study Year</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr>
-                                    <td colSpan="10" className="px-3 py-4 border-b text-center text-gray-500 italic">No data to display. Please populate this structure in your Excel file.</td>
+                                    <td colSpan="11" className="px-3 py-4 border-b text-center text-gray-500 italic">No data to display. Please populate this structure in your Excel file.</td>
                                 </tr>
                             </tbody>
                         </table>

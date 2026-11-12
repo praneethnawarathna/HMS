@@ -3,7 +3,7 @@ import React, { useEffect, useState, useRef, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import ExcelJS from 'exceljs'
 import { saveAs } from 'file-saver'
-import { X } from 'lucide-react'
+import { X, ArrowUpCircle, CheckCircle2, Trash2, AlertTriangle } from 'lucide-react'
 
 import DefaultInput from '../../components/Form/DefaultInput'
 import { FaFemale, FaMale, FaUserTie } from 'react-icons/fa'
@@ -33,6 +33,7 @@ const AllStudents = () => {
     const [yearFilter, setYearFilter] = useState('')
     const [assignedYearFilter, setAssignedYearFilter] = useState('')
     const [hostelFilter, setHostelFilter] = useState('')
+    const [studyYearFilter, setStudyYearFilter] = useState('')
     const [currentPage, setCurrentPage] = useState(1)
     const [showPreviewModal, setShowPreviewModal] = useState(false)
     const [previewData, setPreviewData] = useState(null)
@@ -46,11 +47,24 @@ const AllStudents = () => {
     const [editError, setEditError] = useState('')
     const [editSuccess, setEditSuccess] = useState('')
 
+    // History modal state
+    const [historyStudent, setHistoryStudent] = useState(null)
+    const [historyData, setHistoryData] = useState([])
+    const [historyLoading, setHistoryLoading] = useState(false)
+
     // Bulk delete modal state
     const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false)
     const [bulkFilters, setBulkFilters] = useState({ faculty: '', batch: '', gender: '', assignmentStatus: '', hostel: '' })
     const [bulkDeleting, setBulkDeleting] = useState(false)
     const [bulkDeleteResult, setBulkDeleteResult] = useState(null) // { deleted, failed }
+
+    // Promote batch modal state
+    const [showPromoteModal, setShowPromoteModal] = useState(false)
+    const [promoteFaculty, setPromoteFaculty] = useState('')
+    const [intakeYear, setIntakeYear] = useState('')
+    const [targetStudyYear, setTargetStudyYear] = useState('2nd Year')
+    const [promoteLoading, setPromoteLoading] = useState(false)
+    const [promoteMsg, setPromoteMsg] = useState(null)
 
     const handleOpenEditModal = (student) => {
         setEditingStudent(student)
@@ -67,6 +81,7 @@ const AllStudents = () => {
             dateOfEnrolment: student.dateOfEnrolment ? student.dateOfEnrolment.split('T')[0] : '',
             distance: student.distance || '',
             sex: student.sex || '',
+            studyYear: student.studyYear || '',
         })
         setEditError('')
         setEditSuccess('')
@@ -167,9 +182,27 @@ const AllStudents = () => {
         setShowBulkDeleteModal(true)
     }
 
+    const handleOpenHistoryModal = async (student) => {
+        setHistoryStudent(student)
+        setHistoryData([])
+        setHistoryLoading(true)
+        try {
+            const res = await axios.get(
+                `${import.meta.env.VITE_APP_API}/student/allocation-history/${student._id}`,
+                { headers: { Authorization: `Bearer ${token}` } }
+            )
+            setHistoryData(res.data.history || [])
+        } catch (err) {
+            console.error('Failed to load allocation history:', err)
+            setHistoryData([])
+        } finally {
+            setHistoryLoading(false)
+        }
+    }
 
 
-    useEffect(() => {
+
+    const fetchStudents = () => {
         axios
             .get(import.meta.env.VITE_APP_API + '/student/get-all-students-auth', {
                 headers: { Authorization: `Bearer ${token}` }
@@ -184,6 +217,56 @@ const AllStudents = () => {
                 setFilteredStudents([])
                 console.error('Failed to fetch students:', err)
             })
+    }
+
+    const handlePromoteBatch = async (e) => {
+        e.preventDefault()
+        if (!intakeYear.trim()) {
+            alert('Please enter an Intake Year (e.g., 21, 22, 2022)')
+            return
+        }
+
+        const facultyLabel = promoteFaculty ? (DEPARTMENT_MAP[promoteFaculty] || promoteFaculty) : 'All Faculties'
+        const confirmMsg = `Are you sure you want to promote Batch '${intakeYear}' (${facultyLabel}) to '${targetStudyYear}'?\n\nThis will:\n1. Update study year for matching students to ${targetStudyYear}\n2. Reset their current hostel assignment status to 'Not Assigned'\n3. Deactivate their active room/hostel allocations`
+        if (!window.confirm(confirmMsg)) return
+
+        setPromoteLoading(true)
+        setPromoteMsg(null)
+        try {
+            const res = await axios.post(
+                `${import.meta.env.VITE_APP_API}/student/promote-batch`,
+                {
+                    intake_year: intakeYear.trim(),
+                    target_study_year: targetStudyYear,
+                    faculty: promoteFaculty || undefined
+                },
+                { headers: { Authorization: `Bearer ${token}` } }
+            )
+
+            if (res.data.Status === 'Success') {
+                setPromoteMsg({ type: 'success', text: res.data.Message })
+                fetchStudents()
+                setTimeout(() => {
+                    setShowPromoteModal(false)
+                    setPromoteMsg(null)
+                    setIntakeYear('')
+                    setPromoteFaculty('')
+                }, 2000)
+            } else {
+                setPromoteMsg({ type: 'error', text: res.data.Error || 'Failed to promote batch' })
+            }
+        } catch (err) {
+            setPromoteMsg({
+                type: 'error',
+                text: err.response?.data?.details || err.response?.data?.Error || 'Server error while promoting batch'
+            })
+        } finally {
+            setPromoteLoading(false)
+        }
+    }
+
+    useEffect(() => {
+        fetchStudents()
     }, [token])
 
     useEffect(() => {
@@ -243,6 +326,50 @@ const AllStudents = () => {
         const set = new Set(allstds.map(s => getYear(s.enrolmentNo)))
         return [{ value: '', label: 'All' }, ...Array.from(set).sort().map(y => ({ value: y, label: `20${y}` }))]
     }, [allstds])
+
+    const facultyOptions = React.useMemo(() => {
+        const codes = Array.from(new Set((allstds || []).map(s => getMainDept(s.enrolmentNo)).filter(Boolean))).sort()
+        return [
+            { value: '', label: 'All Faculties' },
+            ...codes.map(c => ({ value: c, label: `${DEPARTMENT_MAP[c] || c} (${c})` }))
+        ]
+    }, [allstds])
+
+    const existingIntakeOptions = React.useMemo(() => {
+        const relevantStudents = (allstds || []).filter(s => {
+            if (!promoteFaculty) return true
+            return getMainDept(s.enrolmentNo) === promoteFaculty
+        })
+
+        const yearMap = new Map()
+        relevantStudents.forEach(s => {
+            const yr = getYear(s.enrolmentNo)
+            if (yr) {
+                if (!yearMap.has(yr)) {
+                    yearMap.set(yr, { val: yr, count: 0 })
+                }
+                yearMap.get(yr).count++
+            } else if (s.intake) {
+                const raw = String(s.intake).trim()
+                if (raw) {
+                    if (!yearMap.has(raw)) {
+                        yearMap.set(raw, { val: raw, count: 0 })
+                    }
+                    yearMap.get(raw).count++
+                }
+            }
+        })
+
+        return Array.from(yearMap.values())
+            .map(item => {
+                const labelYear = item.val.length === 2 ? `20${item.val} (Batch ${item.val})` : `Batch ${item.val}`
+                return {
+                    value: item.val,
+                    label: `${labelYear} (${item.count} student${item.count !== 1 ? 's' : ''})`
+                }
+            })
+            .sort((a, b) => b.value.localeCompare(a.value, undefined, { numeric: true }))
+    }, [allstds, promoteFaculty])
 
     const assignedYearOptions = React.useMemo(() => {
         const set = new Set(
@@ -384,7 +511,18 @@ const AllStudents = () => {
 
             const matchesHostel = hostelFilter === '' || String(student.hostelId || '') === String(hostelFilter)
 
-            return matchesSearch && matchesAssigned && matchesDistance && matchesGender && matchesDepartment && matchesYear && matchesHostel && matchesAssignedYear
+            const normalizeStudyYear = (sy) => {
+                if (!sy) return ''
+                const s = String(sy).toLowerCase().trim()
+                if (s.includes('1')) return '1st Year'
+                if (s.includes('2')) return '2nd Year'
+                if (s.includes('3')) return '3rd Year'
+                if (s.includes('4')) return '4th Year'
+                return sy
+            }
+            const matchesStudyYear = studyYearFilter === '' || normalizeStudyYear(student.studyYear) === studyYearFilter
+
+            return matchesSearch && matchesAssigned && matchesDistance && matchesGender && matchesDepartment && matchesYear && matchesHostel && matchesAssignedYear && matchesStudyYear
         })
 
         // sort by enrolmentNo (if present)
@@ -398,7 +536,7 @@ const AllStudents = () => {
 
         setFilteredStudents(filtered)
         setCurrentPage(1)
-    }, [searchTerm, allstds, assignmentStatus, minDistance, maxDistance, genderFilter, departmentFilter, yearFilter, hostelFilter, sortOrder, assignedYearFilter])
+    }, [searchTerm, allstds, assignmentStatus, minDistance, maxDistance, genderFilter, departmentFilter, yearFilter, hostelFilter, sortOrder, assignedYearFilter, studyYearFilter])
 
     const totalPages = Math.ceil(filteredStudents.length / recordsPerPage)
     const paginatedData = filteredStudents.slice(
@@ -411,7 +549,9 @@ const AllStudents = () => {
         const columns = ['No', 'Enrolment No', 'Student Name', 'Faculty(Department)', 'Batch', 'Study Year', 'Hall Fee']
         const rows = filteredStudents.map((std, idx) => {
             let studyYear = '-'
-            if (std.dateOfEnrolment) {
+            if (std.studyYear) {
+                studyYear = std.studyYear
+            } else if (std.dateOfEnrolment) {
                 const currentYear = new Date().getFullYear()
                 const enrolYear = new Date(std.dateOfEnrolment).getFullYear()
                 studyYear = `Year ${(currentYear - enrolYear) + 1}`
@@ -592,6 +732,22 @@ const AllStudents = () => {
 
                 <Dropdown
                     inline
+                    label="Study Year"
+                    name="studyYearFilter"
+                    value={studyYearFilter}
+                    onChange={e => setStudyYearFilter(e.target.value)}
+                    options={[
+                        { value: '', label: 'All Years' },
+                        { value: '1st Year', label: '1st Year' },
+                        { value: '2nd Year', label: '2nd Year' },
+                        { value: '3rd Year', label: '3rd Year' },
+                        { value: '4th Year', label: '4th Year' },
+                    ]}
+                    className="w-36"
+                />
+
+                <Dropdown
+                    inline
                     label="Assignment Status"
                     name="assignmentStatus"
                     value={assignmentStatus}
@@ -680,7 +836,17 @@ const AllStudents = () => {
                     onClick={openBulkDeleteModal}
                     className="bg-red-700 text-white px-6 py-2 rounded hover:bg-red-800 font-semibold flex items-center gap-2"
                 >
-                    🗑 Bulk Delete
+                    <Trash2 size={16} />
+                    Bulk Delete
+                </button>
+
+                <button
+                    type="button"
+                    onClick={() => { setShowPromoteModal(true); setPromoteMsg(null); }}
+                    className="bg-emerald-700 text-white px-6 py-2 rounded hover:bg-emerald-800 font-semibold flex items-center gap-2 shadow-sm"
+                >
+                    <ArrowUpCircle size={18} />
+                    Promote Batch
                 </button>
             </div>
 
@@ -707,7 +873,17 @@ const AllStudents = () => {
                                     </td>
                                     <td className="px-6 py-4">{data.enrolmentNo}</td>
                                     <td className="px-6 py-4">
-                                        {data.dateOfEnrolment ? `Year ${(new Date().getFullYear() - new Date(data.dateOfEnrolment).getFullYear()) + 1}` : ''}
+                                        {data.studyYear ? (
+                                            <span className="bg-indigo-100 text-indigo-700 text-xs font-semibold px-3 py-1 rounded-full">
+                                                {data.studyYear}
+                                            </span>
+                                        ) : data.dateOfEnrolment ? (
+                                            <span className="bg-gray-100 text-gray-600 text-xs font-semibold px-3 py-1 rounded-full">
+                                                {`Year ${(new Date().getFullYear() - new Date(data.dateOfEnrolment).getFullYear()) + 1}`}
+                                            </span>
+                                        ) : (
+                                            <span className="text-gray-400 text-xs">—</span>
+                                        )}
                                     </td>
                                     <td className="px-6 py-4">
                                         {data.sex === 'Male' ? (
@@ -742,6 +918,8 @@ const AllStudents = () => {
                                     </td>
                                     <td className="px-6 py-4">
                                         <ActionButtons
+                                            onView={() => handleOpenHistoryModal(data)}
+                                            viewTitle="View Hostel Assignment History"
                                             onEdit={() => handleOpenEditModal(data)}
                                             onDelete={async () => {
                                                 if (!window.confirm(`Delete student ${data.enrolmentNo}? This action cannot be undone.`)) return;
@@ -963,6 +1141,20 @@ const AllStudents = () => {
                                     <option value="REV">REV</option>
                                 </select>
                             </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-700 mb-1">Study Year</label>
+                                <select
+                                    value={editForm.studyYear || ''}
+                                    onChange={e => setEditForm(prev => ({ ...prev, studyYear: e.target.value }))}
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6b0f14]/30 focus:border-[#6b0f14] bg-white"
+                                >
+                                    <option value="">-- Select --</option>
+                                    <option value="1st Year">1st Year</option>
+                                    <option value="2nd Year">2nd Year</option>
+                                    <option value="3rd Year">3rd Year</option>
+                                    <option value="4th Year">4th Year</option>
+                                </select>
+                            </div>
                         </div>
 
                         {/* Modal Footer */}
@@ -995,9 +1187,12 @@ const AllStudents = () => {
                 <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full border border-gray-100 overflow-hidden">
                     {/* Header */}
                     <div className="px-6 py-4 bg-red-700 text-white flex items-center justify-between">
-                        <div>
-                            <h3 className="font-bold text-base">🗑 Bulk Delete Students</h3>
-                            <p className="text-xs text-white/70 mt-0.5">Filter students to delete in bulk</p>
+                        <div className="flex items-center gap-2">
+                            <Trash2 size={18} />
+                            <div>
+                                <h3 className="font-bold text-base">Bulk Delete Students</h3>
+                                <p className="text-xs text-white/70 mt-0.5">Filter students to delete in bulk</p>
+                            </div>
                         </div>
                         <button onClick={() => { setShowBulkDeleteModal(false); setBulkDeleteResult(null) }} className="p-1 hover:bg-white/20 rounded-lg transition-colors">
                             <X size={18} />
@@ -1009,7 +1204,7 @@ const AllStudents = () => {
                             /* Result view */
                             <div className="text-center py-4">
                                 <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-3">
-                                    <span className="text-2xl">✅</span>
+                                    <CheckCircle2 size={30} className="text-emerald-600" />
                                 </div>
                                 <p className="font-bold text-gray-800 text-base mb-1">Deletion Complete</p>
                                 <p className="text-sm text-gray-600">
@@ -1106,7 +1301,7 @@ const AllStudents = () => {
                                 {/* Warning */}
                                 {bulkDeleteMatches.length > 0 && (
                                     <p className="text-xs text-gray-500 flex items-start gap-1.5">
-                                        <span className="text-amber-500 mt-0.5">⚠</span>
+                                        <AlertTriangle size={15} className="text-amber-500 mt-0.5 flex-shrink-0" />
                                         This action is permanent and cannot be undone. All hostel assignments for these students will also be removed.
                                     </p>
                                 )}
@@ -1125,13 +1320,278 @@ const AllStudents = () => {
                                         {bulkDeleting ? (
                                             <><span className="animate-spin inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full" /> Deleting...</>
                                         ) : (
-                                            <>🗑 Delete {bulkDeleteMatches.length} Student{bulkDeleteMatches.length !== 1 ? 's' : ''}</>
+                                            <><Trash2 size={15} /> Delete {bulkDeleteMatches.length} Student{bulkDeleteMatches.length !== 1 ? 's' : ''}</>
                                         )}
                                     </button>
                                 </div>
                             </>
                         )}
                     </div>
+                </div>
+            </div>
+        )}
+
+
+        {/* ── Hostel Assignment History Modal ── */}
+        {historyStudent && (
+            <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+                <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden border border-gray-100">
+                    {/* Header */}
+                    <div className="px-6 py-4 bg-[#6b0f14] text-white flex items-center justify-between flex-shrink-0">
+                        <div>
+                            <h3 className="font-bold text-lg text-white">Hostel Assignment History</h3>
+                            <p className="text-xs text-[#fdf6e3]/80 mt-0.5 flex items-center gap-2">
+                                <span>{historyStudent.enrolmentNo} — {historyStudent.name}</span>
+                                {historyStudent.studyYear && (
+                                    <span className="bg-[#d4af37] text-[#6b0f14] font-bold px-2 py-0.5 rounded-full text-[10px]">
+                                        Current: {historyStudent.studyYear}
+                                    </span>
+                                )}
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => { setHistoryStudent(null); setHistoryData([]) }}
+                            className="p-1 rounded-lg hover:bg-white/20 transition-colors text-white"
+                        >
+                            <X size={20} />
+                        </button>
+                    </div>
+
+                    {/* Body */}
+                    <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                        {historyLoading ? (
+                            <div className="flex flex-col items-center justify-center py-12">
+                                <div className="animate-spin w-8 h-8 border-4 border-gray-200 border-t-[#6b0f14] rounded-full mb-3" />
+                                <span className="text-gray-500 text-xs">Loading assignment history...</span>
+                            </div>
+                        ) : historyData.length === 0 ? (
+                            <div className="text-center py-10 bg-gray-50 rounded-xl border border-gray-200">
+                                <p className="text-gray-600 text-sm font-medium">No hostel assignment history found for this student.</p>
+                            </div>
+                        ) : (
+                            <div className="grid gap-3.5">
+                                {historyData.map((yr) => {
+                                    const statusConfig = {
+                                        'Assigned': {
+                                            cardBg: 'bg-emerald-50/40',
+                                            cardBorder: 'border-emerald-200',
+                                            badge: 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                        },
+                                        'Completed': {
+                                            cardBg: 'bg-sky-50/40',
+                                            cardBorder: 'border-sky-200',
+                                            badge: 'bg-sky-100 text-sky-800 border border-sky-200'
+                                        },
+                                        'Not Assigned': {
+                                            cardBg: 'bg-rose-50/40',
+                                            cardBorder: 'border-rose-200',
+                                            badge: 'bg-rose-100 text-rose-800 border border-rose-200'
+                                        },
+                                        'Pending': {
+                                            cardBg: 'bg-amber-50/40',
+                                            cardBorder: 'border-amber-200',
+                                            badge: 'bg-amber-100 text-amber-800 border border-amber-200'
+                                        },
+                                        'Upcoming': {
+                                            cardBg: 'bg-gray-50',
+                                            cardBorder: 'border-gray-200',
+                                            badge: 'bg-gray-100 text-gray-600 border border-gray-200'
+                                        },
+                                    }
+                                    const cfg = statusConfig[yr.status] || statusConfig['Not Assigned']
+                                    const isCurrentYear = historyStudent.studyYear &&
+                                        String(historyStudent.studyYear).toLowerCase().includes(String(yr.yearIndex))
+
+                                    return (
+                                        <div
+                                            key={yr.yearIndex}
+                                            className={`relative rounded-xl border p-4 transition-all ${
+                                                isCurrentYear
+                                                    ? 'border-[#6b0f14] ring-2 ring-[#6b0f14]/15 bg-[#fffdfd]'
+                                                    : `${cfg.cardBorder} ${cfg.cardBg}`
+                                            }`}
+                                        >
+                                            {isCurrentYear && (
+                                                <span className="absolute -top-2.5 left-4 bg-[#6b0f14] text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-sm">
+                                                    Current Year
+                                                </span>
+                                            )}
+                                            <div className="flex items-center justify-between pb-2 mb-2 border-b border-gray-200/60">
+                                                <div>
+                                                    <h4 className="font-bold text-gray-900 text-sm">{yr.studyYear}</h4>
+                                                    {yr.academicYear && yr.academicYear !== '-' && (
+                                                        <p className="text-[11px] text-gray-500">Academic Year: {yr.academicYear}</p>
+                                                    )}
+                                                </div>
+                                                <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${cfg.badge}`}>
+                                                    {yr.status}
+                                                </span>
+                                            </div>
+
+                                            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-gray-700 pt-1">
+                                                <div>
+                                                    <span className="text-gray-500 font-medium">Hostel: </span>
+                                                    <span className="font-semibold text-gray-800">{yr.hostelName || '—'}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-gray-500 font-medium">Room: </span>
+                                                    <span className="font-semibold text-gray-800">{yr.roomNo || '—'}</span>
+                                                </div>
+                                                {yr.inDate && (
+                                                    <div>
+                                                        <span className="text-gray-500 font-medium">Assigned: </span>
+                                                        <span className="text-gray-800">{new Date(yr.inDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                                                    </div>
+                                                )}
+                                                {yr.outDate && (
+                                                    <div>
+                                                        <span className="text-gray-500 font-medium">Vacated: </span>
+                                                        <span className="text-gray-800">{new Date(yr.outDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                                                    </div>
+                                                )}
+                                                {yr.note && (
+                                                    <div className="col-span-2 text-[11px] text-gray-500 italic mt-0.5">
+                                                        Note: {yr.note}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Footer */}
+                    <div className="px-6 py-3 border-t border-gray-100 bg-gray-50 flex justify-end flex-shrink-0">
+                        <button
+                            type="button"
+                            onClick={() => { setHistoryStudent(null); setHistoryData([]) }}
+                            className="px-5 py-2 text-sm font-medium text-white bg-[#6b0f14] hover:bg-[#520b0f] rounded-lg transition-colors"
+                        >
+                            Close
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {/* ── Promote Batch Modal ── */}
+        {showPromoteModal && (
+            <div className="fixed inset-0 z-[150] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+                <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full border border-gray-100 overflow-hidden">
+                    <div className="px-6 py-4 bg-emerald-700 text-white flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <ArrowUpCircle size={20} />
+                            <h3 className="font-bold text-base">Promote Batch</h3>
+                        </div>
+                        <button
+                            onClick={() => { setShowPromoteModal(false); setPromoteMsg(null); }}
+                            className="p-1 hover:bg-white/20 rounded-lg transition-colors"
+                        >
+                            <X size={18} />
+                        </button>
+                    </div>
+
+                    <form onSubmit={handlePromoteBatch} className="p-6 space-y-4">
+                        <p className="text-xs text-gray-600">
+                            Increment the study year for an entire batch and reset their hostel assignment status to <strong>Not Assigned</strong> for the upcoming academic year.
+                        </p>
+
+                        {promoteMsg && (
+                            <div className={`p-3 rounded-lg text-xs font-medium ${
+                                promoteMsg.type === 'success'
+                                    ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                                    : 'bg-red-50 text-red-800 border border-red-200'
+                            }`}>
+                                {promoteMsg.text}
+                            </div>
+                        )}
+
+                        <div>
+                            <label className="block text-xs font-semibold text-gray-700 mb-1">
+                                Faculty <span className="text-gray-400 font-normal">(optional)</span>
+                            </label>
+                            <select
+                                value={promoteFaculty}
+                                onChange={(e) => {
+                                    setPromoteFaculty(e.target.value);
+                                    setIntakeYear('');
+                                }}
+                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
+                            >
+                                {facultyOptions.map(opt => (
+                                    <option key={opt.value} value={opt.value}>
+                                        {opt.label}
+                                    </option>
+                                ))}
+                            </select>
+                            <p className="text-[11px] text-gray-400 mt-1">
+                                Select a specific faculty or choose "All Faculties"
+                            </p>
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-semibold text-gray-700 mb-1">
+                                Intake Year <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                                value={intakeYear}
+                                onChange={(e) => setIntakeYear(e.target.value)}
+                                required
+                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
+                            >
+                                <option value="">-- Select Existing Intake Year --</option>
+                                {existingIntakeOptions.map(opt => (
+                                    <option key={opt.value} value={opt.value}>
+                                        {opt.label}
+                                    </option>
+                                ))}
+                            </select>
+                            <p className="text-[11px] text-gray-400 mt-1">
+                                Select an existing student intake/batch to promote
+                            </p>
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-semibold text-gray-700 mb-1">
+                                Target Study Year <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                                value={targetStudyYear}
+                                onChange={(e) => setTargetStudyYear(e.target.value)}
+                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
+                            >
+                                <option value="1st Year">1st Year</option>
+                                <option value="2nd Year">2nd Year</option>
+                                <option value="3rd Year">3rd Year</option>
+                                <option value="4th Year">4th Year</option>
+                                <option value="Graduated">Graduated</option>
+                            </select>
+                        </div>
+
+                        <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+                            <button
+                                type="button"
+                                onClick={() => { setShowPromoteModal(false); setPromoteMsg(null); }}
+                                className="px-4 py-2 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors font-medium"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={promoteLoading}
+                                className="px-4 py-2 text-sm text-white bg-emerald-700 hover:bg-emerald-800 rounded-lg transition-colors font-medium flex items-center gap-1.5 disabled:opacity-50"
+                            >
+                                {promoteLoading ? (
+                                    <><span className="animate-spin inline-block w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full" /> Promoting...</>
+                                ) : (
+                                    <>Promote Batch</>
+                                )}
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
         )}

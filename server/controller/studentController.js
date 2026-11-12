@@ -421,9 +421,21 @@ const StudentController = {
             const studentsFromExcel = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
 
             const insertedStudents = [];
+            const updatedStudents = [];
             const duplicateStudents = [];
 
             const uploadId = req.body.uploadId;
+            const normalizeStudyYearVal = (val) => {
+                if (!val) return null;
+                const str = String(val).trim();
+                const lower = str.toLowerCase();
+                if (lower === '1' || lower.includes('1st') || lower === 'year 1') return '1st Year';
+                if (lower === '2' || lower.includes('2nd') || lower === 'year 2') return '2nd Year';
+                if (lower === '3' || lower.includes('3rd') || lower === 'year 3') return '3rd Year';
+                if (lower === '4' || lower.includes('4th') || lower === 'year 4') return '4th Year';
+                return str;
+            };
+
             if (uploadId) {
                 global.uploadProgress = global.uploadProgress || {};
                 global.uploadProgress[uploadId] = { current: 0, total: studentsFromExcel.length };
@@ -443,6 +455,9 @@ const StudentController = {
                 });
                 const get = (k) => norm[k.replace(/\W/g, '').toLowerCase()];
 
+                const rawRowStudyYear = get('Study_Year') || get('StudyYear') || get('studyyear');
+                const rowStudyYear = normalizeStudyYearVal(rawRowStudyYear) || req.body.studyYear || '1st Year';
+
                 // Determine enrolment number and trim any leading/trailing spaces
                 let enrolVal = get('Enrolment_No.') || get('enrolmentno') || get('Enrollment_No.') || get('enrollmentno');
                 if (typeof enrolVal === 'string') {
@@ -459,7 +474,60 @@ const StudentController = {
                 const exists = await Student.findOne({ enrolmentNo: enrolVal });
 
                 if (exists) {
-                    duplicateStudents.push(idField);
+                    // Upsert: Update existing student's study_year and reset assignment status for the new year
+                    exists.studyYear = rowStudyYear;
+                    exists.isAssign = false;
+                    exists.eligibilityStatus = 'Not Eligible';
+                    exists.hostelAssignedDate = null;
+
+                    const nameVal = get('Name');
+                    if (nameVal) exists.name = nameVal;
+                    const distVal = get('alDistrict') || get('aldistrict');
+                    if (distVal) exists.alDistrict = distVal;
+                    const sexVal = normalizeGender(get('Sex') ?? get('Gender'));
+                    if (sexVal) exists.sex = sexVal;
+                    const nicVal = get('NIC');
+                    if (nicVal) exists.nic = nicVal;
+                    const intakeVal = get('Intake');
+                    if (intakeVal) exists.intake = intakeVal;
+
+                    const { toIdVariants } = require('../utils/wardenAssignments');
+                    const existsIdVariants = toIdVariants(exists._id);
+                    // Deactivate any currently active allocations for this student (archiving previous year)
+                    await Allocation.updateMany(
+                        {
+                            $or: [
+                                { studentId: { $in: existsIdVariants } },
+                                { regNo: { $in: [...existsIdVariants, exists.enrolmentNo].filter(Boolean) } }
+                            ],
+                            active: true
+                        },
+                        {
+                            $set: {
+                                active: false,
+                                outDate: new Date(),
+                                status: 'Completed',
+                                note: `Completed previous year; updated to ${rowStudyYear}`
+                            }
+                        }
+                    );
+
+                    exists.hostelAllocations = exists.hostelAllocations || [];
+                    const yrIdx = exists.hostelAllocations.findIndex(a => a.studyYear === rowStudyYear);
+                    if (yrIdx >= 0) {
+                        exists.hostelAllocations[yrIdx].status = 'Not Assigned';
+                        exists.hostelAllocations[yrIdx].hostelId = null;
+                        exists.hostelAllocations[yrIdx].roomId = null;
+                    } else {
+                        exists.hostelAllocations.push({
+                            studyYear: rowStudyYear,
+                            status: 'Not Assigned',
+                            note: 'Reset for new academic year via Excel upload'
+                        });
+                    }
+
+                    await exists.save();
+                    updatedStudents.push(idField);
                     continue;
                 }
 
@@ -477,10 +545,15 @@ const StudentController = {
                     dateOfEnrolment: get('Date_of_Enollment') || get('dateofenrolment') || get('dateofenrollment') || get('dateofenrollment') || get('dateofenrollment'),
                     department: get('Department') || get('department'),
                     batchYear: get('Batch_Year') || get('batchyear'),
-                    studyYear: get('Study_Year') || get('studyyear'),
+                    studyYear: rowStudyYear,
                     distance: null,
                     isAssign: false,
-                    eligibilityStatus: 'Not Eligible'
+                    eligibilityStatus: 'Not Eligible',
+                    hostelAllocations: [{
+                        studyYear: rowStudyYear,
+                        status: 'Not Assigned',
+                        note: 'Initial import via Excel upload'
+                    }]
                 };
 
                 // Only set enrolmentNo if present (avoid explicit nulls which trigger unique index conflicts)
@@ -551,8 +624,10 @@ const StudentController = {
 
             res.json({
                 Status: "Success",
-                Message: 'Upload complete',
+                Message: `Upload complete: ${insertedCount} new student(s) imported, ${updatedStudents.length} existing student(s) updated with assignments reset for their study year.`,
                 insertedCount,
+                updatedCount: updatedStudents.length,
+                totalProcessed: processedCount,
                 duplicateCount: duplicateStudents.length,
                 duplicates: duplicateStudents
             });
@@ -786,6 +861,7 @@ const StudentController = {
                 fullAddress,
                 intake,
                 dateOfEnrolment,
+                studyYear,
                 distance: computedDistance,
                 transitDurationSec: computedDurationSec,
                 transitDurationText: computedDurationText,
@@ -1005,7 +1081,8 @@ const StudentController = {
                 fullAddress,
                 intake,
                 dateOfEnrolment,
-                distance
+                distance,
+                studyYear
             } = req.body;
 
             // Only auto-calculate distance if it's 0 or empty
@@ -1055,6 +1132,7 @@ const StudentController = {
                 fullAddress,
                 intake,
                 dateOfEnrolment,
+                studyYear,
                 distance: computedDistance,
                 transitDurationSec: computedDurationSec,
                 transitDurationText: computedDurationText,
@@ -1330,6 +1408,323 @@ StudentController.deleteStudent = async (req, res) => {
     } catch (err) {
         console.error('Error deleting student:', err);
         return res.status(500).json({ Error: 'Failed to delete student' });
+    }
+};
+
+// "Promote Batch" API: Increments study_year for matching students and resets hostel assignment to "Not Assigned"
+StudentController.promoteBatch = async (req, res) => {
+    try {
+        const intakeYear = req.body.intake_year || req.body.intake || req.body.batchYear;
+        const targetStudyYear = req.body.target_study_year || req.body.targetStudyYear || req.body.studyYear;
+        const faculty = req.body.faculty || req.body.department;
+
+        if (!intakeYear) {
+            return res.status(400).json({ Status: 'Fail', Error: 'intake_year is required' });
+        }
+
+        const cleanYear = String(intakeYear).trim();
+        const yearSuffix = cleanYear.length >= 2 ? cleanYear.slice(-2) : cleanYear;
+
+        let query = {
+            $or: [
+                { intake: cleanYear },
+                { batchYear: cleanYear },
+                { intake: new RegExp(cleanYear, 'i') },
+                { enrolmentNo: new RegExp(`[/_-]${yearSuffix}[/_-]`, 'i') }
+            ]
+        };
+
+        if (faculty && String(faculty).trim()) {
+            const f = String(faculty).trim();
+            const facultyRegex = new RegExp(`^${f}[/_]`, 'i');
+            query = {
+                $and: [
+                    query,
+                    {
+                        $or: [
+                            { enrolmentNo: facultyRegex },
+                            { department: new RegExp(`^${f}$`, 'i') },
+                            { department: new RegExp(f, 'i') }
+                        ]
+                    }
+                ]
+            };
+        }
+
+        // Match students by intake, batchYear, or enrolmentNo (and optional faculty)
+        const students = await Student.find(query);
+
+        if (!students.length) {
+            return res.status(404).json({
+                Status: 'Fail',
+                Error: `No students found matching intake year ${cleanYear}${faculty ? ` for faculty ${faculty}` : ''}`
+            });
+        }
+
+        // Generate string and ObjectId variants safely
+        const studentIds = students.map(s => s._id);
+        const studentIdVariants = new Set();
+        studentIds.forEach(id => {
+            if (!id) return;
+            const str = id.toString().trim();
+            if (str) {
+                studentIdVariants.add(str);
+                if (mongoose.Types.ObjectId.isValid(str)) {
+                    try { studentIdVariants.add(new mongoose.Types.ObjectId(str)); } catch (_) {}
+                }
+            }
+        });
+        const idVariantsArr = Array.from(studentIdVariants);
+        const enrolmentNos = students.map(s => s.enrolmentNo).filter(Boolean);
+
+        // Deactivate all currently active allocations for these students in Allocation collection
+        try {
+            await Allocation.updateMany(
+                {
+                    $or: [
+                        { studentId: { $in: idVariantsArr } },
+                        { regNo: { $in: [...idVariantsArr, ...enrolmentNos] } }
+                    ],
+                    active: true
+                },
+                {
+                    $set: {
+                        active: false,
+                        outDate: new Date(),
+                        note: `Archived due to batch update to ${targetStudyYear || 'next year'}`
+                    }
+                }
+            );
+        } catch (allocErr) {
+            console.warn('[promoteBatch] Allocation archive warning:', allocErr.message);
+        }
+
+        // Also deactivate in HostelAllocation collection if present
+        try {
+            const HostelAllocation = require('../model/HostelAllocation');
+            if (HostelAllocation) {
+                await HostelAllocation.updateMany(
+                    {
+                        $or: [
+                            { student_id: { $in: idVariantsArr } },
+                            { studentId: { $in: idVariantsArr } }
+                        ],
+                        active: true
+                    },
+                    {
+                        $set: {
+                            active: false,
+                            status: 'Completed',
+                            outDate: new Date(),
+                            note: `Archived due to batch update to ${targetStudyYear || 'next year'}`
+                        }
+                    }
+                );
+            }
+        } catch (haErr) {
+            console.warn('[promoteBatch] HostelAllocation archive warning:', haErr.message);
+        }
+
+        // Clear room occupants for affected rooms only
+        try {
+            const Room = require('../model/Room');
+            const affectedRooms = await Room.find({ students: { $in: idVariantsArr } }, { _id: 1 });
+            const affectedRoomIds = affectedRooms.map(r => r._id);
+
+            if (affectedRoomIds.length > 0) {
+                await Room.updateMany(
+                    { _id: { $in: affectedRoomIds } },
+                    { $pull: { students: { $in: idVariantsArr } } }
+                );
+
+                const updatedRooms = await Room.find({ _id: { $in: affectedRoomIds } });
+                for (const r of updatedRooms) {
+                    const actualCount = Array.isArray(r.students) ? r.students.length : 0;
+                    await Room.updateOne(
+                        { _id: r._id },
+                        { $set: { currentOccupants: actualCount } }
+                    );
+                }
+            }
+        } catch (roomErr) {
+            console.warn('[promoteBatch] Room update warning:', roomErr.message);
+        }
+
+        // Batch update all students using bulkWrite for maximum performance and reliability
+        const nextYrStr = targetStudyYear ? String(targetStudyYear).trim() : '2nd Year';
+        const bulkOps = students.map(s => {
+            const prevYear = s.studyYear || '1st Year';
+            const existingAllocations = Array.isArray(s.hostelAllocations) ? [...s.hostelAllocations] : [];
+
+            // Mark previous active/assigned allocations in history as Completed
+            existingAllocations.forEach(ha => {
+                if (ha.status === 'Assigned' || ha.active) {
+                    ha.status = 'Completed';
+                    ha.active = false;
+                    ha.outDate = new Date();
+                }
+            });
+
+            // If an entry for nextYrStr already exists, reset it to Not Assigned
+            const existingIdx = existingAllocations.findIndex(ha => (ha.studyYear || ha.study_year) === nextYrStr);
+            if (existingIdx >= 0) {
+                existingAllocations[existingIdx].status = 'Not Assigned';
+                existingAllocations[existingIdx].active = false;
+                existingAllocations[existingIdx].hostelId = null;
+                existingAllocations[existingIdx].hostel_id = null;
+                existingAllocations[existingIdx].roomId = null;
+                existingAllocations[existingIdx].note = `Updated from ${prevYear} to ${nextYrStr}`;
+            } else {
+                existingAllocations.push({
+                    studyYear: nextYrStr,
+                    status: 'Not Assigned',
+                    active: false,
+                    note: `Updated from ${prevYear} to ${nextYrStr}`
+                });
+            }
+
+            return {
+                updateOne: {
+                    filter: { _id: s._id },
+                    update: {
+                        $set: {
+                            studyYear: nextYrStr,
+                            isAssign: false,
+                            eligibilityStatus: 'Not Eligible',
+                            hostelAssignedDate: null,
+                            hostelAllocations: existingAllocations
+                        }
+                    }
+                }
+            };
+        });
+
+        if (bulkOps.length > 0) {
+            await Student.collection.bulkWrite(bulkOps, { ordered: false });
+        }
+
+        return res.json({
+            Status: 'Success',
+            Message: `Successfully updated ${students.length} students of intake ${cleanYear}${faculty ? ` (${faculty})` : ''} to ${nextYrStr}. Current hostel assignments have been reset to 'Not Assigned'.`,
+            promotedCount: students.length,
+            targetStudyYear: nextYrStr
+        });
+    } catch (err) {
+        console.error('Error in promoteBatch:', err);
+        return res.status(500).json({ Status: 'Fail', Error: 'Failed to promote batch', details: err.message });
+    }
+};
+
+// Get multi-year hostel allocation history for a student
+StudentController.getStudentAllocationHistory = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const findStudent = await findStudentByIdCompatible(id);
+        if (!findStudent) {
+            return res.status(404).json({ Status: 'Fail', Error: 'Student not found' });
+        }
+
+        const sid = findStudent._id.toString();
+        const enrolNo = findStudent.enrolmentNo;
+        const { toIdVariants } = require('../utils/wardenAssignments');
+        const sidVariants = toIdVariants(sid);
+
+        // Fetch all allocations across all years (matching both ObjectId and String studentId)
+        const allocations = await Allocation.find({
+            $or: [
+                { studentId: { $in: sidVariants } },
+                { regNo: { $in: sidVariants } },
+                ...(enrolNo ? [{ regNo: enrolNo }] : [])
+            ]
+        })
+        .populate('hostelID', 'name hostelID gender')
+        .populate('roomId', 'roomID roomNo')
+        .sort({ inDate: 1, createdAt: 1 })
+        .lean();
+
+        // Construct 4-year history
+        const yearLabels = [
+            { key: '1', label: '1st Year' },
+            { key: '2', label: '2nd Year' },
+            { key: '3', label: '3rd Year' },
+            { key: '4', label: '4th Year' }
+        ];
+
+        const currentStudyYearStr = String(findStudent.studyYear || '1st Year');
+        let currentYearNum = 1;
+        if (currentStudyYearStr.includes('2')) currentYearNum = 2;
+        else if (currentStudyYearStr.includes('3')) currentYearNum = 3;
+        else if (currentStudyYearStr.includes('4')) currentYearNum = 4;
+
+        const history = yearLabels.map((yr, idx) => {
+            const yrNum = idx + 1;
+            // Match allocation by explicit studyYear, or chronological index
+            const matchedAlloc = allocations.find(a => {
+                const aSy = String(a.studyYear || '').toLowerCase();
+                return aSy.includes(yr.key) || aSy.includes(yr.label.toLowerCase());
+            }) || allocations[idx] || null;
+
+            if (matchedAlloc) {
+                const hostelName = matchedAlloc.hostelID?.name || matchedAlloc.note || 'Assigned';
+                const roomNo = matchedAlloc.roomId?.roomNo || matchedAlloc.roomId?.roomID || '-';
+                const status = matchedAlloc.active ? 'Assigned' : (matchedAlloc.status || 'Completed');
+
+                return {
+                    yearIndex: yrNum,
+                    studyYear: yr.label,
+                    hostelId: matchedAlloc.hostelID?._id || null,
+                    hostelName: hostelName,
+                    roomId: matchedAlloc.roomId?._id || null,
+                    roomNo: roomNo,
+                    academicYear: matchedAlloc.academicYear || '-',
+                    status: status,
+                    active: !!matchedAlloc.active,
+                    inDate: matchedAlloc.inDate,
+                    outDate: matchedAlloc.outDate,
+                    note: matchedAlloc.note || ''
+                };
+            }
+
+            // Fallback status if no allocation document exists for this year
+            let defaultStatus = 'Not Assigned';
+            let hostelName = 'Not Assigned';
+            if (yrNum === currentYearNum) {
+                if (findStudent.isAssign) {
+                    defaultStatus = 'Assigned';
+                    hostelName = findStudent.hostelName || 'Assigned';
+                } else if (findStudent.eligibilityStatus === 'Eligible') {
+                    defaultStatus = 'Pending';
+                    hostelName = 'Pending Allocation';
+                }
+            } else if (yrNum > currentYearNum) {
+                defaultStatus = 'Upcoming';
+                hostelName = 'Not Yet Eligible';
+            }
+
+            return {
+                yearIndex: yrNum,
+                studyYear: yr.label,
+                hostelId: null,
+                hostelName: hostelName,
+                roomId: null,
+                roomNo: '-',
+                academicYear: '-',
+                status: defaultStatus,
+                active: defaultStatus === 'Assigned',
+                inDate: null,
+                outDate: null,
+                note: yrNum === currentYearNum ? 'Current Academic Year' : ''
+            };
+        });
+
+        return res.json({
+            Status: 'Success',
+            student: findStudent,
+            history
+        });
+    } catch (err) {
+        console.error('Error in getStudentAllocationHistory:', err);
+        return res.status(500).json({ Status: 'Fail', Error: 'Failed to retrieve allocation history' });
     }
 };
 

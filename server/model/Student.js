@@ -31,6 +31,22 @@ const StudentSchema = new mongoose.Schema({
     department: String,
     batchYear: String,
     studyYear: String,
+    hostelAllocations: [{
+        studyYear: { type: String }, // e.g. "1st Year", "2nd Year", "3rd Year", "4th Year"
+        study_year: { type: String },
+        hostelId: { type: mongoose.Schema.Types.Mixed, ref: 'Hostel' },
+        hostel_id: { type: mongoose.Schema.Types.Mixed, ref: 'Hostel' },
+        roomId: { type: mongoose.Schema.Types.Mixed, ref: 'Room' },
+        status: {
+            type: String,
+            enum: ['Assigned', 'Pending', 'Not Assigned', 'Completed', 'Cancelled', 'Upcoming'],
+            default: 'Not Assigned'
+        },
+        active: { type: Boolean, default: false },
+        inDate: Date,
+        outDate: Date,
+        note: String
+    }],
     lastEditedBy: String,
     lastEditedAt: Date,
 }, { timestamps: true });

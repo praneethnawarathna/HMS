@@ -8,7 +8,7 @@ const Student = require("../model/Student")
 const { jwtDecode } = require('jwt-decode');
 const bcrypt = require('bcrypt');
 const mongoose = require('mongoose');
-const { getActiveWardenAssignments, getActiveWardenHostelIds } = require('../utils/wardenAssignments');
+const { getActiveWardenAssignments, getActiveWardenHostelIds, buildDualIdFilter, toIdVariants } = require('../utils/wardenAssignments');
 
 const objectIdPattern = /^[0-9a-fA-F]{24}$/;
 
@@ -527,8 +527,8 @@ const HostelController = {
                 return res.json({ Status: "Error", Message: "Hostel not found" });
             }
 
-            // Fetch students before proceeding
-            const students = await Student.find({ _id: { $in: studentIds } });
+            // Fetch students before proceeding (supporting String & ObjectId)
+            const students = await Student.find(buildDualIdFilter('_id', studentIds));
 
             // Eligibility is stored on Student; current assignment is determined by active allocations.
             const ineligibleStudent = students.find(s => s.eligibilityStatus !== 'Eligible' && s.eligibilityStatus !== 'Assigned' && s.eligibilityStatus !== true);
@@ -552,17 +552,17 @@ const HostelController = {
             }
 
             // Calculate actual capacity from rooms
-            const rooms = await Room.find({ hostelID: hostelId });
+            const rooms = await Room.find(buildDualIdFilter('hostelID', hostelId));
             const totalCapacity = rooms.reduce((sum, room) => sum + (room.capasity || 4), 0);
 
             const currentAllocations = await Allocation.find({
-                studentId: { $in: studentIds },
+                ...buildDualIdFilter('studentId', studentIds),
                 active: true
             });
             const currentAllocationIds = currentAllocations.map(allocation => allocation._id);
 
             const existingAllocations = await Allocation.find({
-                hostelID: hostelId,
+                ...buildDualIdFilter('hostelID', hostelId),
                 active: true,
                 _id: { $nin: currentAllocationIds }
             });
@@ -584,26 +584,53 @@ const HostelController = {
             if (currentAllocationIds.length > 0) {
                 await Allocation.updateMany(
                     { _id: { $in: currentAllocationIds } },
-                    { $set: { active: false, outDate: new Date(), note: 'Reassigned to another hostel' } }
+                    { $set: { active: false, outDate: new Date(), status: 'Completed', note: 'Reassigned to another hostel' } }
                 );
             }
 
-            const allocations = uniqueStudentIds.map(studentId => ({
-                regNo: studentId,
-                studentId: studentId,
-                hostelID: hostelId,
-                academicYear: new Date().getFullYear().toString(),
-                inDate: new Date(),
-                active: true,
-            }));
+            const studentMap = new Map(students.map(s => [s._id.toString(), s]));
+            const allocations = uniqueStudentIds.map(sid => {
+                const std = studentMap.get(sid);
+                return {
+                    regNo: std?.enrolmentNo || sid,
+                    studentId: std?._id || sid,
+                    hostelID: hostel._id || hostelId,
+                    academicYear: new Date().getFullYear().toString(),
+                    studyYear: std?.studyYear || '1st Year',
+                    status: 'Assigned',
+                    inDate: new Date(),
+                    active: true,
+                };
+            });
 
             await Allocation.insertMany(allocations);
 
-            // Mark students as assigned
-            await Student.updateMany(
-                { _id: { $in: studentIds } },
-                { $set: { isAssign: true, hostelAssignedDate: new Date(), eligibilityStatus: 'Assigned' } }
-            );
+            // Sync multi-year history on Student records and mark as assigned
+            for (const std of students) {
+                const yr = std.studyYear || '1st Year';
+                std.isAssign = true;
+                std.hostelAssignedDate = new Date();
+                std.eligibilityStatus = 'Assigned';
+                std.hostelAllocations = std.hostelAllocations || [];
+
+                const existingIdx = std.hostelAllocations.findIndex(ha => ha.studyYear === yr);
+                if (existingIdx >= 0) {
+                    std.hostelAllocations[existingIdx].hostelId = hostel._id || hostelId;
+                    std.hostelAllocations[existingIdx].hostelName = hostel.name;
+                    std.hostelAllocations[existingIdx].status = 'Assigned';
+                    std.hostelAllocations[existingIdx].assignedDate = new Date();
+                } else {
+                    std.hostelAllocations.push({
+                        studyYear: yr,
+                        academicYear: new Date().getFullYear().toString(),
+                        hostelId: hostel._id || hostelId,
+                        hostelName: hostel.name,
+                        status: 'Assigned',
+                        assignedDate: new Date()
+                    });
+                }
+                await std.save();
+            }
 
             // Get role document for 'student'
             const studentRole = await Role.findOne({ name: 'student' });
@@ -658,12 +685,10 @@ const HostelController = {
 
             const hostels = assignments.map(assignment => normalizeHostel(assignment.hostelId)).filter(Boolean);
 
-            // Fetch ALL allocations for the warden's hostel(s) — not just active ones.
-            // This ensures the warden can see every student who has ever been allocated here,
-            // including those temporarily unassigned from a room (active: false).
-            const allocations = await Allocation.find({
-                hostelID: { $in: hostelIds },
-            })
+            // Fetch ALL allocations for the warden's hostel(s) — matching both String and ObjectId representations
+            const allocations = await Allocation.find(
+                buildDualIdFilter('hostelID', hostelIds)
+            )
                 .sort({ inDate: -1, _id: -1 })  // most recent first so dedup picks the latest
                 .populate('roomId')
                 .populate('hostelID', 'hostelID name gender');
@@ -692,7 +717,7 @@ const HostelController = {
 
             const studentQueries = [];
             if (objectIds.size > 0) {
-                studentQueries.push({ _id: { $in: Array.from(objectIds) } });
+                studentQueries.push(buildDualIdFilter('_id', Array.from(objectIds)));
             }
             if (enrolmentNos.size > 0) {
                 studentQueries.push({ enrolmentNo: { $in: Array.from(enrolmentNos) } });

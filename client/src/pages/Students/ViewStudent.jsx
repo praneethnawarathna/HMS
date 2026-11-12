@@ -23,7 +23,7 @@ const ViewStudent = () => {
         .filter(Boolean);
 
 
-    // ✅ Role-based access control (lowercase match)
+    // Role-based access control (lowercase match)
     const allowedRoles = ['warden', 'admin', 'director'];
     const isAuthorized = userRoles.some(role => allowedRoles.includes(role));
 
@@ -161,7 +161,7 @@ const ViewStudent = () => {
                     <Detail label="Full Address" value={stdData.fullAddress} />
                     <Detail label="Intake" value={stdData.intake} />
                     <Detail label="Date of Enrolment" value={new Date(stdData.dateOfEnrolment).toLocaleDateString()} />
-                    <Detail label="Study Year" value={stdData.dateOfEnrolment ? `Year ${(new Date().getFullYear() - new Date(stdData.dateOfEnrolment).getFullYear()) + 1}` : ''} />
+                    <Detail label="Study Year" value={stdData.studyYear || (stdData.dateOfEnrolment ? `Year ${(new Date().getFullYear() - new Date(stdData.dateOfEnrolment).getFullYear()) + 1}` : '-')} />
                     <Detail label="Distance" value={stdData.distance + ' km'} />
                     <Detail label="Assigned" value={stdData.isAssign ? 'Yes' : 'No'} />
                     {stdData.hostelAssignedDate && <Detail label="Assigned Date" value={new Date(stdData.hostelAssignedDate).toLocaleDateString()} />}
@@ -212,6 +212,18 @@ const ViewStudent = () => {
                             { label: 'REV', value: 'REV' }
                         ]}
                     />
+                    <Dropdown
+                        label="Study Year"
+                        name="studyYear"
+                        value={formData.studyYear || ''}
+                        onChange={handleChange}
+                        options={[
+                            { label: '1st Year', value: '1st Year' },
+                            { label: '2nd Year', value: '2nd Year' },
+                            { label: '3rd Year', value: '3rd Year' },
+                            { label: '4th Year', value: '4th Year' }
+                        ]}
+                    />
                     <div className="col-span-2 -mt-4">
                         <DefaultBtn type="submit" label="Update Student" />
                     </div>
@@ -249,40 +261,35 @@ const ViewStudent = () => {
                                         color: 'bg-amber-500',
                                         bgColor: 'bg-amber-50',
                                         borderColor: 'border-amber-200',
-                                        textColor: 'text-amber-700',
-                                        icon: '🚪'
+                                        textColor: 'text-amber-700'
                                     },
                                     HOSTEL_CHANGE: {
                                         label: 'Hostel Transfer',
                                         color: 'bg-blue-500',
                                         bgColor: 'bg-blue-50',
                                         borderColor: 'border-blue-200',
-                                        textColor: 'text-blue-700',
-                                        icon: '🔄'
+                                        textColor: 'text-blue-700'
                                     },
                                     UNASSIGN_HOSTEL: {
                                         label: 'Removed from Hostel',
                                         color: 'bg-red-500',
                                         bgColor: 'bg-red-50',
                                         borderColor: 'border-red-200',
-                                        textColor: 'text-red-700',
-                                        icon: '❌'
+                                        textColor: 'text-red-700'
                                     },
                                     ASSIGN_HOSTEL: {
                                         label: 'Assigned to Hostel',
                                         color: 'bg-green-500',
                                         bgColor: 'bg-green-50',
                                         borderColor: 'border-green-200',
-                                        textColor: 'text-green-700',
-                                        icon: '✅'
+                                        textColor: 'text-green-700'
                                     },
                                     ASSIGN_ROOM: {
                                         label: 'Room Assigned',
                                         color: 'bg-teal-500',
                                         bgColor: 'bg-teal-50',
                                         borderColor: 'border-teal-200',
-                                        textColor: 'text-teal-700',
-                                        icon: '🏠'
+                                        textColor: 'text-teal-700'
                                     }
                                 };
 
@@ -291,8 +298,7 @@ const ViewStudent = () => {
                                     color: 'bg-gray-500',
                                     bgColor: 'bg-gray-50',
                                     borderColor: 'border-gray-200',
-                                    textColor: 'text-gray-700',
-                                    icon: '📋'
+                                    textColor: 'text-gray-700'
                                 };
 
                                 const prevHostel = item.previousHostelId?.name || '-';
@@ -310,7 +316,7 @@ const ViewStudent = () => {
                                         <div className={`${config.bgColor} border ${config.borderColor} rounded-lg p-4 shadow-sm`}>
                                             <div className="flex items-center justify-between mb-2">
                                                 <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${config.bgColor} ${config.textColor} border ${config.borderColor}`}>
-                                                    {config.icon} {config.label}
+                                                    {config.label}
                                                 </span>
                                                 <span className="text-xs text-gray-500 font-medium">{actionDate}</span>
                                             </div>
