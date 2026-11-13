@@ -47,6 +47,8 @@ import AssignStundetToRoomSp from './pages/WardenDash/AssignStundetToRoomSp'
 import AlreadyAssigned from './pages/WardenDash/AlreadyAssigned'
 import BackupOptions from './pages/BackupOptions/BackupOptions'
 import Reports from './pages/Reports/Reports'
+import WardenDashboard from './pages/WardenDash/WardenDashboard'
+import AdminDashboard from './pages/DashHome/AdminDashboard'
 
 function App() {
     return (
@@ -64,6 +66,7 @@ function App() {
                     <Route path='/Dashboard/' element={<PrivateRoute element={<Dashbaord />} />} >
                         <Route path='*' element={<DashError />} />
                         <Route path='Home' element={<PrivateRoute element={<DashHome />} />} />
+                        <Route path='AdminDashboard' element={<PrivateRoute element={<AdminDashboard />} />} />
 
                         <Route path='Permissions' element={<PrivateRoute element={<RolePermissions />} />} />
                         <Route path='Create-Permissions' element={<PrivateRoute element={<CreateRolePermissions />} />} />
@@ -95,6 +98,7 @@ function App() {
                         <Route path='View-Room/:id' element={<PrivateRoute element={<ViewRoom />} />} />
 
                         <Route path='WardenStudents' element={<PrivateRoute element={<WardenStudents />} />} />
+                        <Route path='WardenDashboard' element={<PrivateRoute element={<WardenDashboard />} />} />
                         <Route path='WardenPayments' element={<PrivateRoute element={<WardenPayments />} />} />
                         <Route path='WardenRooms' element={<PrivateRoute element={<WardenRooms />} />} />
                         <Route path='WardenRoomAssignNeed' element={<PrivateRoute element={<WardenRoomAssignNeed />} />} />
