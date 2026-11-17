@@ -237,7 +237,7 @@ const SignIn = () => {
                                     name="identifier"
                                     value={signInData.identifier}
                                     onChange={handleInputChange}
-                                    placeholder={loginMode === 'student' ? 'Enter your Enrolment Number' : 'you@example.com'}
+                                    placeholder={loginMode === 'student' ? 'e.g., M/20/175' : 'you@example.com'}
                                     required
                                 />
                                 <div className="mb-3 text-xs text-gray-600">

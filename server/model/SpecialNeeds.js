@@ -11,9 +11,17 @@ const specialNeedsSchema = new mongoose.Schema({
     isAccpeted: { type: Boolean, default: false },
     decision: {
         type: String,
-        enum: ['pending', 'approved', 'rejected'],
         default: 'pending'
-    }
+    },
+    status: {
+        type: String,
+        default: 'Pending'
+    },
+    conditionType: { type: String, default: '' },
+    issueCategory: { type: String, default: '' },
+    student_id: { type: String, default: '' },
+    hostel_id: { type: String, default: '' },
+    room_no: { type: String, default: '' },
 }, {timestamps: true});
 
 module.exports = mongoose.model('SpecialNeeds', specialNeedsSchema);

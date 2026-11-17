@@ -15,6 +15,8 @@ router.get('/payments/export', authMiddleware, checkPermission('view-payments'),
 router.get('/student-extra-needs', authMiddleware, AdminController.getStudentExtraNeeds);
 // Admin: directly add a student to special needs, making them eligible and appending to excel queue
 router.post('/add-special-need', authMiddleware, AdminController.addSpecialNeed);
+router.post('/update-need-status/:id', authMiddleware, AdminController.updateNeedStatus);
+router.put('/update-need-status/:id', authMiddleware, AdminController.updateNeedStatus);
 
 // Admin: backup options
 router.get('/backup-settings', authMiddleware, checkPermission('manage-backups'), BackupSettingsController.getBackupSettings);

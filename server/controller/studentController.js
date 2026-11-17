@@ -823,6 +823,10 @@ const StudentController = {
             } = req.body;
 
 
+            if (!enrolmentNo || !enrolmentNo.includes('/') || !/^[A-Za-z]+(?:\/[A-Za-z0-9]+)+\/\d+$/.test(enrolmentNo.trim())) {
+                return res.json({ error: "Invalid Enrollment No format. University of Peradeniya format requires slashes (e.g., M/20/175)." });
+            }
+
             const existingStudent = await Student.findOne({ enrolmentNo });
 
             if (existingStudent) {
@@ -1198,41 +1202,88 @@ const StudentController = {
 
     StudentCreateNeeds: async (req, res) => {
         try {
-            const { regNo, needs } = req.body;
+            const { regNo, needs, remark, conditionType, issueCategory, student_id, hostel_id, room_no } = req.body;
 
-            if (!regNo || !needs) {
-                return res.status(400).json({ Status: 'Fail', Error: 'regNo and needs are required.' });
-            }
-
-            const normalizedIdentifier = normalizeEmail(regNo);
-            if (!normalizedIdentifier) {
-                return res.status(400).json({ Status: 'Fail', Error: 'regNo (enrolmentNo) is required.' });
+            if (!regNo && !student_id) {
+                return res.status(400).json({ Status: 'Fail', Error: 'regNo or student_id is required.' });
             }
 
-            // regNo is treated as enrolmentNo (preferred). Fall back to email for backwards compatibility.
-            let getstdId = await Student.findOne({ enrolmentNo: normalizedIdentifier });
-            if (!getstdId) {
-                getstdId = await Student.findOne({ enrolmentNo: new RegExp(`^${escapeRegExp(normalizedIdentifier)}$`, 'i') });
+            if (!needs && !conditionType && !issueCategory && !remark) {
+                return res.status(400).json({ Status: 'Fail', Error: 'Please provide request details.' });
             }
-            if (!getstdId) {
-                getstdId = await Student.findOne({ email: normalizedIdentifier });
+
+            let getstdId = null;
+            if (student_id) {
+                getstdId = await Student.findById(student_id);
             }
-            if (!getstdId) {
-                getstdId = await Student.findOne({ email: new RegExp(`^${escapeRegExp(normalizedIdentifier)}$`, 'i') });
+
+            if (!getstdId && regNo) {
+                const normalizedIdentifier = normalizeEmail(regNo);
+                if (normalizedIdentifier) {
+                    getstdId = await Student.findOne({ enrolmentNo: normalizedIdentifier });
+                    if (!getstdId) {
+                        getstdId = await Student.findOne({ enrolmentNo: new RegExp(`^${escapeRegExp(normalizedIdentifier)}$`, 'i') });
+                    }
+                    if (!getstdId) {
+                        getstdId = await Student.findOne({ email: normalizedIdentifier });
+                    }
+                    if (!getstdId) {
+                        getstdId = await Student.findOne({ email: new RegExp(`^${escapeRegExp(normalizedIdentifier)}$`, 'i') });
+                    }
+                }
             }
 
             if (!getstdId) {
                 return res.status(404).json({ Status: 'Fail', Error: 'Student not found' });
             }
 
+            // Resolve hostel_id and room_no if not provided
+            let resolvedHostelId = hostel_id || '';
+            let resolvedRoomNo = room_no || '';
+            try {
+                const Allocation = require('../model/Allocation');
+                const alloc = await Allocation.findOne({
+                    $or: [
+                        { studentId: getstdId._id },
+                        { regNo: getstdId._id },
+                        { regNo: getstdId.enrolmentNo }
+                    ],
+                    active: true
+                }).populate('roomId', 'roomID roomNo').populate('hostelID', 'name _id');
+
+                if (alloc) {
+                    if (!resolvedHostelId && alloc.hostelID) {
+                        resolvedHostelId = alloc.hostelID?._id ? alloc.hostelID._id.toString() : alloc.hostelID.toString();
+                    }
+                    if (!resolvedRoomNo && alloc.roomId) {
+                        resolvedRoomNo = alloc.roomId.roomID || alloc.roomId.roomNo || '';
+                    }
+                }
+                if (!resolvedHostelId && getstdId.hostelId) {
+                    resolvedHostelId = getstdId.hostelId.toString();
+                }
+            } catch (aErr) {
+                console.error('Error resolving allocation for student needs:', aErr);
+            }
+
+            const formattedNeeds = needs || (conditionType ? `${conditionType}: ${remark || ''}` : issueCategory ? `[${issueCategory}] ${remark || ''}` : 'Special Need');
+
             const newSpecialNeeds = new SpecialNeeds({
                 regNo: getstdId._id,
-                needs,
+                needs: formattedNeeds,
+                remark: remark || (typeof needs === 'string' ? needs : ''),
+                conditionType: conditionType || '',
+                issueCategory: issueCategory || '',
+                student_id: String(getstdId._id),
+                hostel_id: resolvedHostelId,
+                room_no: resolvedRoomNo,
+                decision: 'pending',
+                isAccpeted: false,
             });
 
             await newSpecialNeeds.save();
 
-            return res.json({ Status: 'Success', Message: 'Special needs submitted successfully!' });
+            return res.json({ Status: 'Success', Message: 'Request submitted successfully!', Data: newSpecialNeeds });
         } catch (err) {
             console.error('Error saving special needs:', err);
             return res.status(500).json({ Status: 'Fail', Error: 'Internal server error' });
@@ -1365,7 +1416,7 @@ const StudentController = {
                 return res.status(404).json({ Status: 'Fail', Error: 'Student not found' });
             }
 
-            const specialNeeds = await SpecialNeeds.find({ regNo: stdID._id });
+            const specialNeeds = await SpecialNeeds.find({ regNo: stdID._id }).sort({ createdAt: -1 });
             return res.json({ Status: 'Success', Data: specialNeeds });
         } catch (err) {
             console.error('Error fetching special needs by email:', err);

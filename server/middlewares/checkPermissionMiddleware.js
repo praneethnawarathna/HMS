@@ -92,7 +92,7 @@ const checkPermission = (requiredPermission) => {
                 'view-one-hostel', 'get-all-hostels', 'create-hostel', 'update-room-count',
                 'assign-new-warden', 'get-all-warden', 'student-assign-hostel',
                 'get-warden-students', 'view-all-students', 'get-one-student', 'delete-hostel',
-                'view-all-users', 'view-one-user', 'delete-user',
+                'view-all-users', 'view-one-user', 'delete-user', 'update-user-status', 'update-user-role', 'verify-user-email',
                 'view-all-wardens', 'get-one-warden',
                 // Student CRUD — admin/director must always be able to list, view, edit and create students
                 'get-all-students-auth', 'get-student-byID', 'update-Student',

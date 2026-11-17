@@ -419,7 +419,7 @@ const AssignViaExcel = () => {
                             </div>
 
                             {/* Manual add + Upload */}
-                            <div className="grid sm:grid-cols-2 gap-4 items-start">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
 
                                 {/* Manual add */}
                                 <div className="rounded-xl border border-gray-200 p-5">
