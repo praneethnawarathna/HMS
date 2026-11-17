@@ -418,11 +418,14 @@ const AdminController = {
                     fullName: sn.regNo?.fullName || null,
                     needs: sn.needs,
                     remark: sn.remark || null,
+                    conditionType: sn.conditionType || null,
+                    issueCategory: sn.issueCategory || null,
+                    student_id: studentId || sn.student_id || null,
                     isAccpeted: sn.isAccpeted,
                     decision: sn.decision || (sn.isAccpeted ? 'approved' : 'pending'),
                     hostelName: allocInfo?.hostelName || null,
-                    hostelId: allocInfo?.hostelId || null,
-                    roomNo: allocInfo?.roomNo || null,
+                    hostelId: allocInfo?.hostelId || sn.hostel_id || null,
+                    roomNo: allocInfo?.roomNo || sn.room_no || null,
                     roomId: allocInfo?.roomId || null,
                     createdAt: sn.createdAt,
                     updatedAt: sn.updatedAt
@@ -442,6 +445,12 @@ const AdminController = {
             const { enrolmentNo, category, remark } = req.body;
             if (!enrolmentNo || !category) {
                 return res.status(400).json({ Error: 'enrolmentNo and category are required' });
+            }
+
+            const cleanEnrol = String(enrolmentNo).trim();
+            // University of Peradeniya format requires slashes: e.g. M/20/175, E/21/002, A/19/250
+            if (!cleanEnrol.includes('/') || !/^[A-Za-z]+(?:\/[A-Za-z0-9]+)+\/\d+$/.test(cleanEnrol)) {
+                return res.status(400).json({ Error: 'Invalid Enrollment No format. University of Peradeniya format requires slashes (e.g., M/20/175)' });
             }
 
             const Student = require('../model/Student');
@@ -506,6 +515,39 @@ const AdminController = {
         } catch (err) {
             console.error('admin addSpecialNeed error:', err);
             return res.status(500).json({ Error: 'Server error', details: err.message });
+        }
+    },
+
+    updateNeedStatus: async (req, res) => {
+        try {
+            const { id } = req.params;
+            const { status } = req.body;
+
+            if (!id || !status) {
+                return res.status(400).json({ Status: 'Fail', Error: 'Need ID and status are required' });
+            }
+
+            const SpecialNeeds = require('../model/SpecialNeeds');
+            const need = await SpecialNeeds.findById(id);
+            if (!need) {
+                return res.status(404).json({ Status: 'Fail', Error: 'Request record not found' });
+            }
+
+            need.status = status;
+            need.decision = status;
+
+            if (['Resolved', 'Reviewed/Noted', 'approved', 'In Progress', 'Room Re-allocation Required'].includes(status)) {
+                need.isAccpeted = true;
+            } else {
+                need.isAccpeted = false;
+            }
+
+            await need.save();
+
+            return res.json({ Status: 'Success', Message: 'Status updated successfully', data: need });
+        } catch (err) {
+            console.error('admin updateNeedStatus error:', err);
+            return res.status(500).json({ Status: 'Fail', Error: 'Server error', details: err.message });
         }
     }
 };

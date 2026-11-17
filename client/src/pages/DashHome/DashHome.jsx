@@ -1,6 +1,7 @@
 import React from 'react';
 import { getRoleNames, getUserInfoFromToken } from '../../utils/auth';
 import WardenDashboard from '../WardenDash/WardenDashboard';
+import StudentDashboard from '../StudentDash/StudentDashboard';
 import AdminDashboard from './AdminDashboard';
 
 const DashHome = () => {
@@ -19,9 +20,14 @@ const DashHome = () => {
 
     const roles = getRoleNames(userInfo);
     const isWarden = roles.includes('warden');
+    const isStudent = roles.includes('student');
 
     if (isWarden) {
         return <WardenDashboard />;
+    }
+
+    if (isStudent) {
+        return <StudentDashboard />;
     }
 
     return <AdminDashboard />;

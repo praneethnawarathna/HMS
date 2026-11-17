@@ -50,22 +50,10 @@ const dashsidedata = [
         icon: FaUserCog,
     },
     {
-        id: 9,
-        name: 'Permission',
-        link: '/Dashboard/Permissions',
-        icon: FaUserLock
-    },
-    {
         id: 10,
         name: 'Users',
         link: '/Dashboard/Users',
         icon: FaUsers
-    },
-    {
-        id: 11,
-        name: 'Wardens',
-        link: '/Dashboard/Wardens',
-        icon: FaUserCog
     },
     {
         id: 12,
@@ -81,19 +69,19 @@ const dashsidedata = [
     },
     {
         id: 14,
-        name: 'Student Extra Needs',
+        name: 'Extra Needs',
         link: '/Dashboard/StdExtraNeeds',
         icon: FaHouseUser
     },
     {
         id: 16,
-        name: 'Student Extra Needs',
+        name: 'Extra Needs',
         link: '/Dashboard/AdminExtraNeeds',
         icon: FaHouseUser
     },
     {
         id: 22,
-        name: 'Special Need',
+        name: 'Special Needs',
         link: '/Dashboard/AdminCreateSpecialNeed',
         icon: FaHouseUser
     },

@@ -93,13 +93,21 @@ const authController = {
                 const resultStoreOTP = await storeOTP.save()
 
                 transporter.sendMail(mailOptions, (err, info) => {
+                    const tokenemailVerify = jwt.sign({ email }, process.env.JWT_SECRET || 'secret', { expiresIn: '5min' });
                     if (err) {
-                        return res.json({ Error: "Registration succeeded, but failed to send verification email." });
-                    } else {
-                        const tokenemailVerify = jwt.sign({ email }, process.env.JWT_SECRET, { expiresIn: '5min' });
-
                         return res.json({
                             Status: "Success",
+                            user: resultNewUser,
+                            userId: resultNewUser._id,
+                            verifyToken: tokenemailVerify,
+                            Warning: "User created, but verification email could not be sent.",
+                            Message: "User created successfully."
+                        });
+                    } else {
+                        return res.json({
+                            Status: "Success",
+                            user: resultNewUser,
+                            userId: resultNewUser._id,
                             verifyToken: tokenemailVerify,
                             Message: "Registration successful. Verification code sent to your email. Verify Email Please wait and wait for activation."
                         });
@@ -521,10 +529,93 @@ const authController = {
                     .filter(Boolean);
             }
 
+            let studentDetails = null;
+            if (roleNames.includes('student')) {
+                try {
+                    const Student = require('../model/Student');
+                    const Allocation = require('../model/Allocation');
+                    const Room = require('../model/Room');
+                    const Hostel = require('../model/Hostel');
+                    const Warden = require('../model/Warden');
+
+                    const student = await Student.findOne({
+                        $or: [
+                            { enrolmentNo: user.username },
+                            { enrolmentNo: { $regex: new RegExp(`^${user.username}$`, 'i') } },
+                            { no: user.username }
+                        ]
+                    });
+
+                    if (student) {
+                        let alloc = await Allocation.findOne({
+                            $or: [
+                                { studentId: String(student._id), active: true },
+                                { regNo: student.enrolmentNo, active: true },
+                                { studentId: String(student._id) },
+                                { regNo: student.enrolmentNo }
+                            ]
+                        }).sort({ active: -1, _id: -1 });
+
+                        let hostelObj = null;
+                        let roomObj = null;
+                        let wardenObj = null;
+                        let roommatesList = [];
+
+                        if (alloc) {
+                            if (alloc.hostelID) {
+                                hostelObj = await Hostel.findById(alloc.hostelID);
+                            }
+                            if (alloc.roomId) {
+                                roomObj = await Room.findById(alloc.roomId).populate('students', 'name enrolmentNo sex');
+                                if (roomObj && Array.isArray(roomObj.students)) {
+                                    roommatesList = roomObj.students.filter(
+                                        s => String(s._id) !== String(student._id) && s.enrolmentNo !== student.enrolmentNo
+                                    );
+                                }
+                            }
+                        }
+
+                        // Fallbacks from student model if allocation document isn't populated
+                        if (!hostelObj && student.hostelId) {
+                            hostelObj = await Hostel.findById(student.hostelId);
+                        }
+                        if (!hostelObj && student.hostelName && student.hostelName !== 'Not Assigned') {
+                            hostelObj = await Hostel.findOne({ name: student.hostelName });
+                        }
+
+                        // Resolve warden
+                        if (hostelObj) {
+                            const wardenAssignment = await Warden.findOne({
+                                hostelId: hostelObj._id,
+                                active: true
+                            }).populate('userId', 'username name email phone contact');
+
+                            if (wardenAssignment?.userId) {
+                                wardenObj = wardenAssignment.userId;
+                            } else if (hostelObj.warden) {
+                                wardenObj = await User.findById(hostelObj.warden).select('username name email phone contact');
+                            }
+                        }
+
+                        studentDetails = {
+                            profile: student,
+                            allocation: alloc,
+                            hostel: hostelObj,
+                            room: roomObj,
+                            warden: wardenObj,
+                            roommates: roommatesList
+                        };
+                    }
+                } catch (stErr) {
+                    console.error('Error attaching student details in getmebyemail:', stErr);
+                }
+            }
+
             return res.status(200).json({
                 Status: 'Success',
                 Result: user,
-                Hostels: assignedHostels
+                Hostels: assignedHostels,
+                StudentDetails: studentDetails
             });
         } catch (err) {
             console.error('getmebyemail error:', err);

@@ -29,16 +29,24 @@ const WardenController = {
             // Get allocated students in all hostel(s) managed by the warden.
             // NOTE: Allocation.studentId is the intended field, but some datasets store the student ObjectId in Allocation.regNo.
             const allocations = await Allocation.find({ hostelID: { $in: hostelIds }, active: true })
-                .select('studentId regNo')
+                .select('studentId regNo roomId')
+                .populate('roomId', 'roomID roomNo')
                 .lean();
 
             if (!allocations.length) {
                 return res.json({ Result: [] });
             }
 
+            const allocRoomMap = {};
             const studentIdSet = new Set();
             const enrolmentNos = [];
             for (const a of allocations) {
+                const sId = (a.studentId || a.regNo)?.toString();
+                const roomStr = a.roomId?.roomID || a.roomId?.roomNo || null;
+                if (sId && roomStr && !allocRoomMap[sId]) {
+                    allocRoomMap[sId] = roomStr;
+                }
+
                 if (a.studentId) studentIdSet.add(a.studentId.toString());
                 if (a.regNo && mongoose.Types.ObjectId.isValid(a.regNo)) {
                     studentIdSet.add(a.regNo.toString());
@@ -59,7 +67,20 @@ const WardenController = {
                 .populate('regNo')
                 .sort({ createdAt: -1 });
 
-            return res.json({ Result: needs });
+            const enriched = needs.map(item => {
+                const doc = item.toObject ? item.toObject() : { ...item };
+                const sId = (item.regNo?._id || item.regNo)?.toString();
+                const resolvedRoom = doc.room_no || (sId ? allocRoomMap[sId] : null) || '-';
+                return {
+                    ...doc,
+                    enrolmentNo: item.regNo?.enrolmentNo || '',
+                    studentName: item.regNo?.fullName || item.regNo?.name || '',
+                    roomNo: resolvedRoom,
+                    room_no: resolvedRoom
+                };
+            });
+
+            return res.json({ Result: enriched });
         }
         catch (err) {
             console.error("Error occurred:", err);
@@ -201,6 +222,39 @@ const WardenController = {
         }
         catch (err) {
             console.log(err)
+            return res.status(500).json({ Status: 'Fail', Error: 'Server error', details: err.message });
+        }
+    },
+
+    updateNeedStatus: async (req, res) => {
+        try {
+            const { id } = req.params;
+            const { status } = req.body;
+
+            if (!id || !status) {
+                return res.status(400).json({ Status: 'Fail', Error: 'Need ID and status are required' });
+            }
+
+            const need = await SpecialNeeds.findById(id);
+            if (!need) {
+                return res.status(404).json({ Status: 'Fail', Error: 'Request record not found' });
+            }
+
+            need.status = status;
+            need.decision = status;
+
+            // Map accepted state for legacy checks
+            if (['Resolved', 'Reviewed/Noted', 'approved', 'In Progress', 'Room Re-allocation Required'].includes(status)) {
+                need.isAccpeted = true;
+            } else {
+                need.isAccpeted = false;
+            }
+
+            await need.save();
+
+            return res.json({ Status: 'Success', Message: 'Status updated successfully', data: need });
+        } catch (err) {
+            console.error('Error in updateNeedStatus:', err);
             return res.status(500).json({ Status: 'Fail', Error: 'Server error', details: err.message });
         }
     },
@@ -652,7 +706,7 @@ const WardenController = {
     updateWarden: async (req, res) => {
         try {
             const { id } = req.params;
-            const { hostelId, active, note } = req.body;
+            const { hostelId, active, note, startDate } = req.body;
 
             const warden = await Warden.findById(id);
             if (!warden) {
@@ -683,7 +737,8 @@ const WardenController = {
             }
 
             if (active !== undefined) warden.active = active;
-            if (note) warden.note = note;
+            if (note !== undefined) warden.note = note;
+            if (startDate) warden.startDate = startDate;
 
             await warden.save();
 

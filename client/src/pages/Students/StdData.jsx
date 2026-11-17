@@ -74,8 +74,8 @@ const StdData = () => {
         // },
     ]
     return (
-        <div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 my-6">
+        <div className="w-full">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 my-4 w-full">
                 {
                     stddata.map((data, index) => {
                         return (
