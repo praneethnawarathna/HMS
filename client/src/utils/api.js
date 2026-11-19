@@ -8,6 +8,10 @@ export const API_BASE_URL = configuredApiBase;
 export const resolveApiUrl = (url = '') => {
     if (!url) return url;
 
+    if (typeof url === 'string' && url.startsWith('undefined/')) {
+        url = url.slice('undefined'.length);
+    }
+
     if (configuredApiBase && url.startsWith(configuredApiBase)) {
         return `${API_BASE_URL}${url.slice(configuredApiBase.length)}`;
     }

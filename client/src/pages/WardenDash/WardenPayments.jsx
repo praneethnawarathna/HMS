@@ -1,8 +1,9 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import axios from 'axios';
 import { getUserInfoFromToken } from '../../utils/auth';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
+import { Shield, RotateCw, CreditCard } from 'lucide-react';
 
 const formatDateYmd = (value) => {
     if (!value) return '';
@@ -121,58 +122,54 @@ const WardenPayments = () => {
     const [hostels, setHostels] = useState([]);
     const [selectedHostelId, setSelectedHostelId] = useState('');
 
+    const fetchPayments = useCallback(async () => {
+        if (!token) {
+            setError('Unauthorized: missing token');
+            setLoading(false);
+            return;
+        }
+
+        const apiBase = import.meta.env.VITE_APP_API;
+        const paymentsUrl = isWarden
+            ? `${apiBase}/warden/payments`
+            : isPrivilegedViewer
+                ? `${apiBase}/admin/payments${selectedHostelId ? `?hostelId=${selectedHostelId}` : ''}`
+                : null;
+
+        if (!paymentsUrl) {
+            setError('Forbidden: you do not have access to payments');
+            setLoading(false);
+            return;
+        }
+
+        if (isPrivilegedViewer && !isWarden && !selectedHostelId) {
+            setPayments([]);
+            setLoading(false);
+            return;
+        }
+
+        try {
+            setLoading(true);
+            setError(null);
+
+            const payRes = await axios.get(paymentsUrl, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            const paymentData = payRes.data.Result || payRes.data.result || [];
+            setPayments(paymentData);
+        } catch (err) {
+            const serverMsg = err?.response?.data?.Error || err?.response?.data?.message || JSON.stringify(err?.response?.data) || err.message;
+            console.error('WardenPayments fetch error', err?.response?.data || err.message);
+            setError(`Failed to load payments or students: ${serverMsg}`);
+        } finally {
+            setLoading(false);
+        }
+    }, [token, isWarden, isPrivilegedViewer, selectedHostelId]);
+
     useEffect(() => {
-        const fetchData = async () => {
-            if (!token) {
-                setError('Unauthorized: missing token');
-                setLoading(false);
-                return;
-            }
-
-
-            const apiBase = import.meta.env.VITE_APP_API;
-            const paymentsUrl = isWarden
-                ? `${apiBase}/warden/payments`
-                : isPrivilegedViewer
-                    ? `${apiBase}/admin/payments${selectedHostelId ? `?hostelId=${selectedHostelId}` : ''}`
-                    : null;
-
-            if (!paymentsUrl) {
-                setError('Forbidden: you do not have access to payments');
-                setLoading(false);
-                return;
-            }
-
-            if (isPrivilegedViewer && !isWarden && !selectedHostelId) {
-                setPayments([]);
-                setLoading(false);
-                return;
-            }
-
-            try {
-                setLoading(true);
-                setError(null);
-
-
-
-                const payRes = await axios.get(paymentsUrl, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-
-                const paymentData = payRes.data.Result || payRes.data.result || [];
-                setPayments(paymentData);
-            } catch (err) {
-                // Provide detailed error information to the UI for troubleshooting
-                const serverMsg = err?.response?.data?.Error || err?.response?.data?.message || JSON.stringify(err?.response?.data) || err.message;
-                console.error('WardenPayments fetch error', err?.response?.data || err.message);
-                setError(`Failed to load payments or students: ${serverMsg}`);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchData();
-    }, [token, currentUser, isWarden, isPrivilegedViewer, selectedHostelId]);
+        fetchPayments();
+    }, [fetchPayments]);
 
     // Fetch hostels list for privileged viewers (admin/director) so they can filter payments by hostel
     useEffect(() => {
@@ -573,14 +570,30 @@ const WardenPayments = () => {
         return d.toISOString().split('T')[0];
     };
 
-    if (loading) return <div className="p-4 text-center">Loading...</div>;
-
     return (
         <>
-            <div className={`mt-8 relative ${showPreviewModal ? 'print:hidden' : ''}`}>
-                <div className="mb-4 font-semibold text-gray-700 text-2xl">Manage Payments</div>
-                {error && <div className="mb-4 p-4 text-red-600 bg-red-50 rounded-lg border border-red-100">{error}</div>}
-                {successMsg && <div className="mb-4 p-4 text-green-600 bg-green-50 rounded-lg border border-green-100">{successMsg}</div>}
+            <div className={`space-y-6 relative ${showPreviewModal ? 'print:hidden' : ''}`}>
+                {/* Hero Section */}
+                <div className="bg-gradient-to-r from-[#6b0f14] via-[#7d1319] to-[#8d1820] text-white rounded-2xl p-6 shadow-md relative overflow-hidden">
+                    <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                        <div>
+                            <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur-sm rounded-full text-xs font-semibold uppercase tracking-wider text-amber-200 mb-2 border border-white/10">
+                                <Shield size={14} className="text-amber-300" />
+                                Warden Financial Portal
+                            </div>
+                            <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-2.5">
+                                <CreditCard className="text-amber-300" size={28} />
+                                Manage Payments
+                            </h1>
+                            <p className="text-white/80 text-sm mt-1">
+                                Track hall fee payments, update student payment records, and generate financial reports for your hostel.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                {error && <div className="p-4 text-sm font-medium text-red-700 bg-red-50 rounded-xl border border-red-200">{error}</div>}
+                {successMsg && <div className="p-4 text-sm font-medium text-green-700 bg-green-50 rounded-xl border border-green-200">{successMsg}</div>}
 
 
 
@@ -630,9 +643,16 @@ const WardenPayments = () => {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                            {payments.length === 0 ? (
+                            {loading && payments.length === 0 ? (
                                 <tr>
-                                    <td colSpan="9" className="px-6 py-4 text-center text-gray-500">
+                                    <td colSpan="9" className="px-6 py-10 text-center text-gray-500 text-sm">
+                                        <RotateCw size={18} className="animate-spin inline-block mr-2 text-[#6b0f14]" />
+                                        Loading payment records...
+                                    </td>
+                                </tr>
+                            ) : payments.length === 0 ? (
+                                <tr>
+                                    <td colSpan="9" className="px-6 py-8 text-center text-gray-500">
                                         No payment records found
                                     </td>
                                 </tr>

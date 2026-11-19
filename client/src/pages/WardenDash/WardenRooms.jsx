@@ -1,7 +1,7 @@
 import axios from 'axios'
 import React, { useEffect, useState } from 'react'
 import { FaFemale, FaMale } from 'react-icons/fa'
-import { X, UserPlus, Trash2, Users, Search, AlertCircle, Check } from 'lucide-react'
+import { X, UserPlus, Trash2, Users, Search, AlertCircle, Check, Shield, DoorClosed, RotateCw } from 'lucide-react'
 import ActionButtons from '../../components/Buttons/ActionButtons'
 
 const WardenRooms = () => {
@@ -11,6 +11,7 @@ const WardenRooms = () => {
     const recordsPerPage = 15
     const token = localStorage.getItem('login')
     const [wardenHostels, setWardenHostels] = useState([])
+    const [loading, setLoading] = useState(false)
 
     // Edit modal state
     const [editingRoom, setEditingRoom] = useState(null)
@@ -32,6 +33,7 @@ const WardenRooms = () => {
     const [editSuccess, setEditSuccess] = useState('')
 
     const fetchRooms = () => {
+        setLoading(true)
         axios
             .get(import.meta.env.VITE_APP_API + '/room/warden-Rooms', {
                 headers: { Authorization: `Bearer ${token}` },
@@ -40,6 +42,7 @@ const WardenRooms = () => {
                 setRooms(res.data.rooms || [])
             })
             .catch(err => console.log(err))
+            .finally(() => setLoading(false))
     }
 
     useEffect(() => {
@@ -224,28 +227,47 @@ const WardenRooms = () => {
     })
 
     return (
-        <div className="mt-8">
-            {/* Assigned Hostels Section */}
-            {wardenHostels.length > 0 && (
-                <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                    <h2 className="text-lg font-semibold text-[#6b0f14] mb-2">Assigned Hostels</h2>
-                    <div className="flex flex-wrap gap-2">
-                        {wardenHostels.map((hostel, idx) => (
-                            <span key={idx} className="bg-[#fdf6e3] text-[#6b0f14] text-sm font-medium px-3 py-1 rounded-full">
-                                {hostel.name}{hostel.gender ? ` (${hostel.gender})` : ''}
-                            </span>
-                        ))}
+        <div className="space-y-6">
+            {/* Hero Section */}
+            <div className="bg-gradient-to-r from-[#6b0f14] via-[#7d1319] to-[#8d1820] text-white rounded-2xl p-6 shadow-md relative overflow-hidden">
+                <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div>
+                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur-sm rounded-full text-xs font-semibold uppercase tracking-wider text-amber-200 mb-2 border border-white/10">
+                            <Shield size={14} className="text-amber-300" />
+                            Warden Room Management
+                        </div>
+                        <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-2.5">
+                            <DoorClosed className="text-amber-300" size={28} />
+                            Manage Rooms
+                        </h1>
+                        <p className="text-white/80 text-sm mt-1">
+                            Monitor room occupancies, manage student allocations, and check bed availability for your assigned hostel.
+                        </p>
+                        {wardenHostels.length > 0 && (
+                            <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-white/10">
+                                <span className="text-xs text-amber-200 font-semibold uppercase tracking-wider">Assigned Hostel:</span>
+                                {wardenHostels.map((hostel, idx) => (
+                                    <span key={idx} className="bg-white/15 text-white text-xs font-medium px-2.5 py-0.5 rounded-full border border-white/20">
+                                        {hostel.name}{hostel.gender ? ` (${hostel.gender})` : ''}
+                                    </span>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </div>
-            )}
-            <div className="mb-4 flex items-center gap-8">
-                <input
-                    type="text"
-                    placeholder="Search by Room ID or Student Name"
-                    value={searchTerm}
-                    onChange={e => setSearchTerm(e.target.value)}
-                    className="w-full max-w-md border border-gray-300 rounded px-4 py-2"
-                />
+            </div>
+
+            <div className="flex items-center gap-4">
+                <div className="relative w-full max-w-md">
+                    <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                        type="text"
+                        placeholder="Search by Room ID or Student Name"
+                        value={searchTerm}
+                        onChange={e => setSearchTerm(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#6b0f14]/30 focus:border-[#6b0f14] shadow-sm"
+                    />
+                </div>
             </div>
 
             <div className="overflow-x-auto rounded-2xl shadow-lg">

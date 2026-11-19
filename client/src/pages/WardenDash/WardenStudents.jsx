@@ -1,7 +1,8 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { FaFemale, FaGraduationCap, FaMale, FaBed, FaUserClock } from 'react-icons/fa';
+import { Shield, RotateCw, GraduationCap } from 'lucide-react';
 import DefaultInput from '../../components/Form/DefaultInput';
 import DefaultBtn from '../../components/Buttons/DefaultBtn';
 import { getUserInfoFromToken } from '../../utils/auth';
@@ -17,13 +18,30 @@ const WardenStudents = () => {
     const token = localStorage.getItem('login');
     const currentUser = useMemo(() => getUserInfoFromToken(), []);
 
-    useEffect(() => {
-        const fetchStudents = async () => {
-            if (!token) {
-                setError('Unauthorized: Missing token.');
-                setLoading(false);
-                return;
+    const fetchStudents = useCallback(async () => {
+        if (!token) {
+            setError('Unauthorized: Missing token.');
+            setLoading(false);
+            return;
+        }
+
+        try {
+            setLoading(true);
+            const url = `${import.meta.env.VITE_APP_API}/hostel/warden-students`;
+            const res = await axios.get(url, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            if (res.data.message) {
+                setError(res.data.message);
+                setStudents([]);
+            } else {
+                setStudents(res.data.Result || []);
+                setError(null);
             }
+<<<<<<< Updated upstream
 
             try {
                 setLoading(true);
@@ -53,7 +71,19 @@ const WardenStudents = () => {
         };
 
         fetchStudents();
+=======
+        } catch (err) {
+            console.error('Error fetching students:', err);
+            setError('Failed to fetch student data: ' + (err.response?.data?.message || err.message));
+        } finally {
+            setLoading(false);
+        }
+>>>>>>> Stashed changes
     }, [token]);
+
+    useEffect(() => {
+        fetchStudents();
+    }, [fetchStudents]);
 
     const filteredStudents = students.filter(({ student }) => {
         const term = searchTerm.toLowerCase();
@@ -84,14 +114,35 @@ const WardenStudents = () => {
         return { assigned, unassigned };
     }, [students]);
 
-    if (loading) return <div className="p-4 text-center">Loading...</div>;
-    if (error) return <div className="p-4 text-center text-red-600">{error}</div>;
-
     return (
-        <div className="mt-8">
-            <div className="mb-4 font-semibold text-gray-700">
-                Logged in as: {currentUser?.email || 'Unknown Warden'}
+        <div className="space-y-6">
+            {/* Hero Section */}
+            <div className="bg-gradient-to-r from-[#6b0f14] via-[#7d1319] to-[#8d1820] text-white rounded-2xl p-6 shadow-md relative overflow-hidden">
+                <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div>
+                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur-sm rounded-full text-xs font-semibold uppercase tracking-wider text-amber-200 mb-2 border border-white/10">
+                            <Shield size={14} className="text-amber-300" />
+                            Warden Student Operations
+                        </div>
+                        <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-2.5">
+                            <GraduationCap className="text-amber-300" size={28} />
+                            Manage Students
+                        </h1>
+                        <p className="text-white/80 text-sm mt-1">
+                            View registered residents, check room allocation statuses, and assign incoming students to available rooms.
+                        </p>
+                        <div className="text-xs text-white/70 mt-2 font-medium">
+                            Logged in as: <span className="text-amber-200 font-semibold">{currentUser?.email || 'Warden'}</span>
+                        </div>
+                    </div>
+                </div>
             </div>
+
+            {error && (
+                <div className="p-4 text-sm font-medium text-red-700 bg-red-50 rounded-xl border border-red-200">
+                    {error}
+                </div>
+            )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 my-6">
                 <div className="relative bg-[#6b0f14] text-white p-6 rounded-2xl shadow-lg overflow-hidden hover:scale-[1.02] transition-transform duration-300">
@@ -178,6 +229,7 @@ const WardenStudents = () => {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
+<<<<<<< Updated upstream
                         {paginatedStudents.map(({ student, allocations }, idx) => {
                             const gender = (student.sex || '').toLowerCase();
                             const activeAllocation = allocations?.find(a => a.active && a.roomId);
@@ -236,6 +288,26 @@ const WardenStudents = () => {
                                 </tr>
                             );
                         })}
+=======
+                        {loading && students.length === 0 ? (
+                            <tr>
+                                <td colSpan="7" className="px-6 py-10 text-center text-gray-500 text-sm">
+                                    <RotateCw size={18} className="animate-spin inline-block mr-2 text-[#6b0f14]" />
+                                    Loading students...
+                                </td>
+                            </tr>
+                        ) : paginatedStudents.length === 0 ? (
+                            <tr>
+                                <td colSpan="7" className="px-6 py-10 text-center text-gray-400 text-sm">
+                                    No students found for this hostel.
+                                </td>
+                            </tr>
+                        ) : (
+                            paginatedStudents.map(({ student, allocations }, idx) => {
+                                const gender = (student.sex || '').toLowerCase();
+                                const activeAllocation = allocations?.find(a => a.active && a.roomId);
+                                const hasRoom = !!activeAllocation;
+>>>>>>> Stashed changes
 
                     </tbody>
                 </table>

@@ -20,7 +20,7 @@ function formatEnrol(enrol) {
 
 async function run() {
   try {
-    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/hms', {
+    await mongoose.connect(process.env.MONGO_URI || process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/NEW_HMS', {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });
