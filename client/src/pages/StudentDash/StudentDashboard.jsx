@@ -11,7 +11,6 @@ import {
     Shield,
     ShieldAlert,
     Calendar,
-    RefreshCw,
     Clock,
     CheckCircle2,
     AlertCircle,
@@ -121,16 +120,6 @@ const StudentDashboard = () => {
                             <Calendar size={15} className="text-amber-300" />
                             <span>{new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</span>
                         </div>
-
-                        <button
-                            type="button"
-                            onClick={() => fetchStudentData(true)}
-                            disabled={refreshing}
-                            className="bg-white/15 hover:bg-white/25 text-white p-2.5 rounded-xl transition-all border border-white/20 flex items-center justify-center disabled:opacity-50 cursor-pointer"
-                            title="Refresh Allocation Details"
-                        >
-                            <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
-                        </button>
                     </div>
                 </div>
             </div>

@@ -79,6 +79,12 @@ const ManageStudents = () => {
             badge: 'Criteria',
         },
         {
+            id: 'excel',
+            label: 'Assign via Excel',
+            icon: FaFileExcel,
+            badge: 'Queue',
+        },
+        {
             id: 'assigned',
             label: 'Assigned Students',
             icon: FaHouseUser,
@@ -89,12 +95,6 @@ const ManageStudents = () => {
             label: 'Student Needs',
             icon: HeartHandshake,
             badge: 'Support',
-        },
-        {
-            id: 'excel',
-            label: 'Assign via Excel',
-            icon: FaFileExcel,
-            badge: 'Queue',
         },
     ];
 
@@ -168,29 +168,26 @@ const ManageStudents = () => {
                                     key={tab.id}
                                     onClick={() => setActiveTab(tab.id)}
                                     type="button"
-                                    className={`flex items-center gap-2.5 px-4 md:px-6 py-3.5 font-bold text-xs sm:text-sm transition-all whitespace-nowrap border-b-2 cursor-pointer shrink-0 ${
-                                        isActive
+                                    className={`flex items-center gap-2.5 px-4 md:px-6 py-3.5 font-bold text-xs sm:text-sm transition-all whitespace-nowrap border-b-2 cursor-pointer shrink-0 ${isActive
                                             ? 'border-[#6b0f14] text-[#6b0f14] bg-white shadow-xs'
                                             : 'border-transparent text-gray-500 hover:text-gray-900 hover:bg-gray-100/60'
-                                    }`}
+                                        }`}
                                 >
                                     <div
-                                        className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center transition-all shrink-0 ${
-                                            isActive
+                                        className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center transition-all shrink-0 ${isActive
                                                 ? 'bg-[#6b0f14] text-white shadow-xs'
                                                 : 'bg-gray-200/70 text-gray-500'
-                                        }`}
+                                            }`}
                                     >
                                         <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                                     </div>
                                     <div className="flex items-center gap-1.5 sm:gap-2">
                                         <span>{tab.label}</span>
                                         <span
-                                            className={`text-[10px] uppercase tracking-wider font-extrabold px-1.5 sm:px-2 py-0.5 rounded-full border ${
-                                                isActive
+                                            className={`text-[10px] uppercase tracking-wider font-extrabold px-1.5 sm:px-2 py-0.5 rounded-full border ${isActive
                                                     ? 'bg-amber-100 text-amber-900 border-amber-300'
                                                     : 'bg-gray-100 text-gray-500 border-gray-200'
-                                            }`}
+                                                }`}
                                         >
                                             {tab.badge}
                                         </span>
@@ -213,7 +210,12 @@ const ManageStudents = () => {
                         <EligibleStudents />
                     </div>
 
-                    {/* Tab 3: Assigned Students */}
+                    {/* Tab 3: Assign via Excel */}
+                    <div className={activeTab === 'excel' ? 'block w-full min-w-0 overflow-x-auto' : 'hidden'}>
+                        <AssignViaExcel />
+                    </div>
+
+                    {/* Tab 4: Assigned Students */}
                     <div className={activeTab === 'assigned' ? 'block w-full min-w-0 overflow-x-auto' : 'hidden'}>
                         <AssignedStudents />
                     </div>
@@ -237,11 +239,10 @@ const ManageStudents = () => {
                                 <button
                                     type="button"
                                     onClick={() => setActiveNeedView('extra')}
-                                    className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-                                        activeNeedView === 'extra'
+                                    className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${activeNeedView === 'extra'
                                             ? 'bg-[#6b0f14] text-white shadow-xs'
                                             : 'text-gray-600 hover:text-gray-900 hover:bg-white/60'
-                                    }`}
+                                        }`}
                                 >
                                     <Wrench size={13} />
                                     <span>Extra Needs (Maintenance)</span>
@@ -250,11 +251,10 @@ const ManageStudents = () => {
                                 <button
                                     type="button"
                                     onClick={() => setActiveNeedView('special')}
-                                    className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-                                        activeNeedView === 'special'
+                                    className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${activeNeedView === 'special'
                                             ? 'bg-[#6b0f14] text-white shadow-xs'
                                             : 'text-gray-600 hover:text-gray-900 hover:bg-white/60'
-                                    }`}
+                                        }`}
                                 >
                                     <HeartPulse size={13} />
                                     <span>Special Needs (Medical)</span>
@@ -264,17 +264,12 @@ const ManageStudents = () => {
 
                         {/* Nested Sub-Views with Horizontal Scroll Protection */}
                         <div className={activeNeedView === 'extra' ? 'block w-full min-w-0 overflow-x-auto' : 'hidden'}>
-                            <AdminExtraNeeds />
+                            <AdminExtraNeeds hideHeader={true} />
                         </div>
 
                         <div className={activeNeedView === 'special' ? 'block w-full min-w-0 overflow-x-auto' : 'hidden'}>
-                            <AdminCreateSpecialNeed />
+                            <AdminCreateSpecialNeed hideHeader={true} />
                         </div>
-                    </div>
-
-                    {/* Tab 5: Assign via Excel */}
-                    <div className={activeTab === 'excel' ? 'block w-full min-w-0 overflow-x-auto' : 'hidden'}>
-                        <AssignViaExcel />
                     </div>
                 </div>
             </div>

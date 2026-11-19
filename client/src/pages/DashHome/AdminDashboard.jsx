@@ -15,7 +15,6 @@ import {
     CheckCircle2,
     AlertCircle,
     Calendar,
-    RefreshCw,
     Search,
     ShieldCheck,
     Layers,
@@ -123,21 +122,21 @@ const AdminDashboard = () => {
     const genderData = useMemo(() => {
         let male = 0;
         let female = 0;
-        let other = 0;
+        let rev = 0;
 
         students.forEach(s => {
             const g = (s.sex || s.gender || '').toLowerCase();
             if (g.includes('fem') || g === 'f') female++;
             else if (g.includes('mal') || g === 'm') male++;
-            else other++;
+            else rev++;
         });
 
-        const total = male + female + other || 1;
+        const total = male + female + rev || 1;
         const femalePct = Math.round((female / total) * 100);
         const malePct = Math.round((male / total) * 100);
-        const otherPct = Math.max(0, 100 - femalePct - malePct);
+        const revPct = Math.max(0, 100 - femalePct - malePct);
 
-        return { male, female, other, total, femalePct, malePct, otherPct };
+        return { male, female, rev, other: rev, total, femalePct, malePct, revPct, otherPct: revPct };
     }, [students]);
 
     // 3. Hostel Occupancy Analytics Data (Bar Chart)
@@ -266,16 +265,6 @@ const AdminDashboard = () => {
                             <Calendar size={15} className="text-amber-300" />
                             <span>{new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</span>
                         </div>
-
-                        <button
-                            type="button"
-                            onClick={() => fetchAllData(true)}
-                            disabled={refreshing}
-                            className="bg-white/15 hover:bg-white/25 text-white p-2.5 rounded-xl transition-all border border-white/20 flex items-center justify-center disabled:opacity-50 cursor-pointer"
-                            title="Refresh Dashboard Data"
-                        >
-                            <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
-                        </button>
                     </div>
                 </div>
             </div>
@@ -510,15 +499,15 @@ const AdminDashboard = () => {
                                         strokeLinecap="round"
                                         className="transition-all duration-700 ease-out"
                                     />
-                                    {/* Other Arc (Amber) */}
-                                    {genderData.otherPct > 0 && (
+                                    {/* Rev Arc (Amber) */}
+                                    {genderData.revPct > 0 && (
                                         <circle
                                             cx="50"
                                             cy="50"
                                             r="38"
                                             stroke="#d97706"
                                             strokeWidth="14"
-                                            strokeDasharray={`${genderData.otherPct * 2.387} 238.7`}
+                                            strokeDasharray={`${genderData.revPct * 2.387} 238.7`}
                                             strokeDashoffset={`-${(genderData.femalePct + genderData.malePct) * 2.387}`}
                                             fill="transparent"
                                             strokeLinecap="round"
@@ -555,10 +544,10 @@ const AdminDashboard = () => {
 
                             <div className="p-2 rounded-xl bg-amber-50/70 border border-amber-100">
                                 <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700">
-                                    <FaUserTie size={12} /> Other
+                                    <FaUserTie size={12} /> Rev
                                 </span>
-                                <p className="text-base font-extrabold text-amber-900 mt-0.5">{genderData.other}</p>
-                                <span className="text-[10px] text-amber-600 font-medium">{genderData.otherPct}%</span>
+                                <p className="text-base font-extrabold text-amber-900 mt-0.5">{genderData.rev}</p>
+                                <span className="text-[10px] text-amber-600 font-medium">{genderData.revPct}%</span>
                             </div>
                         </div>
                     </div>

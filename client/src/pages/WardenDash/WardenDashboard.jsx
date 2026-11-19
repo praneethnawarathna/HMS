@@ -12,7 +12,6 @@ import {
     Building2,
     ChevronRight,
     ArrowUpRight,
-    RefreshCw,
     Wrench,
     Shield,
     Calendar,
@@ -352,16 +351,6 @@ const WardenDashboard = () => {
                             <Calendar size={15} className="text-amber-300" />
                             <span>{new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</span>
                         </div>
-
-                        <button
-                            type="button"
-                            onClick={() => fetchDashboardData(true)}
-                            disabled={refreshing}
-                            className="bg-white/15 hover:bg-white/25 text-white p-2.5 rounded-xl transition-all border border-white/20 flex items-center justify-center disabled:opacity-50 cursor-pointer"
-                            title="Refresh Dashboard Data"
-                        >
-                            <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
-                        </button>
                     </div>
                 </div>
             </div>
@@ -425,13 +414,12 @@ const WardenDashboard = () => {
                     <div className="mt-4">
                         <div className="w-full bg-gray-100 h-2.5 rounded-full overflow-hidden">
                             <div
-                                className={`h-full rounded-full transition-all duration-500 ${
-                                    metrics.occupancyRate > 90
-                                        ? 'bg-rose-600'
-                                        : metrics.occupancyRate > 75
+                                className={`h-full rounded-full transition-all duration-500 ${metrics.occupancyRate > 90
+                                    ? 'bg-rose-600'
+                                    : metrics.occupancyRate > 75
                                         ? 'bg-amber-500'
                                         : 'bg-blue-600'
-                                }`}
+                                    }`}
                                 style={{ width: `${Math.min(100, metrics.occupancyRate)}%` }}
                             />
                         </div>
@@ -657,33 +645,30 @@ const WardenDashboard = () => {
                                 <button
                                     type="button"
                                     onClick={() => { setResidentFilter('ALL'); setCurrentPage(1); }}
-                                    className={`px-3 py-1 rounded-md transition-colors cursor-pointer ${
-                                        residentFilter === 'ALL'
-                                            ? 'bg-white text-gray-900 shadow-xs font-semibold'
-                                            : 'hover:text-gray-900'
-                                    }`}
+                                    className={`px-3 py-1 rounded-md transition-colors cursor-pointer ${residentFilter === 'ALL'
+                                        ? 'bg-white text-gray-900 shadow-xs font-semibold'
+                                        : 'hover:text-gray-900'
+                                        }`}
                                 >
                                     All
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => { setResidentFilter('ASSIGNED'); setCurrentPage(1); }}
-                                    className={`px-3 py-1 rounded-md transition-colors cursor-pointer ${
-                                        residentFilter === 'ASSIGNED'
-                                            ? 'bg-white text-emerald-800 shadow-xs font-semibold'
-                                            : 'hover:text-gray-900'
-                                    }`}
+                                    className={`px-3 py-1 rounded-md transition-colors cursor-pointer ${residentFilter === 'ASSIGNED'
+                                        ? 'bg-white text-emerald-800 shadow-xs font-semibold'
+                                        : 'hover:text-gray-900'
+                                        }`}
                                 >
                                     In Room
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => { setResidentFilter('UNASSIGNED'); setCurrentPage(1); }}
-                                    className={`px-3 py-1 rounded-md transition-colors cursor-pointer ${
-                                        residentFilter === 'UNASSIGNED'
-                                            ? 'bg-white text-amber-800 shadow-xs font-semibold'
-                                            : 'hover:text-gray-900'
-                                    }`}
+                                    className={`px-3 py-1 rounded-md transition-colors cursor-pointer ${residentFilter === 'UNASSIGNED'
+                                        ? 'bg-white text-amber-800 shadow-xs font-semibold'
+                                        : 'hover:text-gray-900'
+                                        }`}
                                 >
                                     Pending Room
                                 </button>
