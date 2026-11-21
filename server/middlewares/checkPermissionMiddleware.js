@@ -43,7 +43,7 @@ const checkPermission = (requiredPermission) => {
             // Allow wardens to perform room-assignment actions even when their Role document
             // doesn't explicitly list the 'assign-room-special' permission. This is a focused
             // fallback to avoid blocking typical warden workflows while roles are being managed.
-            if (requiredPermission === 'assign-room-special') {
+            if (requiredPermission === 'assign-room-special' || requiredPermission === 'update-room-capasity' || requiredPermission === 'delete-room') {
                 const roleNames = user.roles.map(r => r.name);
                 if (roleNames.includes('warden')) {
                     return next();
@@ -84,8 +84,27 @@ const checkPermission = (requiredPermission) => {
                 }
             }
 
-            // Rooms/Hostels: allow admins to update room capacity and count
-            if (requiredPermission === 'update-room-capasity' || requiredPermission === 'update-room-count') {
+            // Rooms/Hostels/Students: allow admins to delete/update/view rooms, hostels, and students
+            const adminAllowed = [
+                'update-room-capasity', 'update-room-count', 'delete-room', 'delete-student', 'delete-hostel',
+                // View permissions that admins and directors should always have
+                'view-all-rooms', 'get-one-room', 'warden-rooms', 'student-assign-to-rooms',
+                'view-one-hostel', 'get-all-hostels', 'create-hostel', 'update-room-count',
+                'assign-new-warden', 'get-all-warden', 'student-assign-hostel',
+                'get-warden-students', 'view-all-students', 'get-one-student', 'delete-hostel',
+                'view-all-users', 'view-one-user', 'delete-user', 'update-user-status', 'update-user-role', 'verify-user-email',
+                'view-all-wardens', 'get-one-warden',
+                // Student CRUD — admin/director must always be able to list, view, edit and create students
+                'get-all-students-auth', 'get-student-byID', 'update-Student',
+                'create-student-manually', 'create-student-sheet',
+                // Room management
+                'get-all-rooms', 'available-students',
+                // Warden management
+                'update-warden', 'delete-warden',
+                // Reports / eligibility
+                'view-eligibility', 'get-eligible-students',
+            ];
+            if (adminAllowed.includes(requiredPermission)) {
                 const roleNames = user.roles.map(r => r.name);
                 if (roleNames.includes('admin') || roleNames.includes('director')) {
                     return next();

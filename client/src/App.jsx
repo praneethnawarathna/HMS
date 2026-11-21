@@ -47,6 +47,10 @@ import AssignStundetToRoomSp from './pages/WardenDash/AssignStundetToRoomSp'
 import AlreadyAssigned from './pages/WardenDash/AlreadyAssigned'
 import BackupOptions from './pages/BackupOptions/BackupOptions'
 import Reports from './pages/Reports/Reports'
+import WardenDashboard from './pages/WardenDash/WardenDashboard'
+import AdminDashboard from './pages/DashHome/AdminDashboard'
+import StudentSpecialNeedPage from './pages/StudentDash/StudentSpecialNeedPage'
+import StudentExtraNeedPage from './pages/StudentDash/StudentExtraNeedPage'
 
 function App() {
     return (
@@ -57,6 +61,7 @@ function App() {
                     <Route path='/' element={<SignIn />} />
                     <Route path='/register' element={<SignUp />} />
                     <Route path='/Forgetpassword' element={<ForgetPass />} />
+                    <Route path='/forgot-password' element={<ForgetPass />} />
                     <Route path='/verify-otp' element={<VerifyOTP />} />
                     <Route path='/update-new-pass' element={<UpdateNewPass />} />
                     <Route path='/verify-email' element={<VerifyEmail />} />
@@ -64,6 +69,7 @@ function App() {
                     <Route path='/Dashboard/' element={<PrivateRoute element={<Dashbaord />} />} >
                         <Route path='*' element={<DashError />} />
                         <Route path='Home' element={<PrivateRoute element={<DashHome />} />} />
+                        <Route path='AdminDashboard' element={<PrivateRoute element={<AdminDashboard />} />} />
 
                         <Route path='Permissions' element={<PrivateRoute element={<RolePermissions />} />} />
                         <Route path='Create-Permissions' element={<PrivateRoute element={<CreateRolePermissions />} />} />
@@ -83,9 +89,9 @@ function App() {
                         <Route path='View-Student/:id' element={<PrivateRoute element={<ViewStudent />} />} />
 
                         <Route path='Student-assign' element={<PrivateRoute element={<HostelAssign />} />} />
-                        <Route path='Assign-via-excel' element={<PrivateRoute element={<AssignViaExcel />} />} />
-                        <Route path='EligibleStudents' element={<PrivateRoute element={<EligibleStudents />} />} />
-                        <Route path='AssignedStudents' element={<PrivateRoute element={<AssignedStudents />} />} />
+                        <Route path='Assign-via-excel' element={<PrivateRoute element={<Students />} />} />
+                        <Route path='EligibleStudents' element={<PrivateRoute element={<Students />} />} />
+                        <Route path='AssignedStudents' element={<PrivateRoute element={<Students />} />} />
 
                         <Route path='Hostels' element={<PrivateRoute element={<Hostels />} />} />
                         <Route path='Create-hostel' element={<PrivateRoute element={<CreateHostel />} />} />
@@ -95,6 +101,7 @@ function App() {
                         <Route path='View-Room/:id' element={<PrivateRoute element={<ViewRoom />} />} />
 
                         <Route path='WardenStudents' element={<PrivateRoute element={<WardenStudents />} />} />
+                        <Route path='WardenDashboard' element={<PrivateRoute element={<WardenDashboard />} />} />
                         <Route path='WardenPayments' element={<PrivateRoute element={<WardenPayments />} />} />
                         <Route path='WardenRooms' element={<PrivateRoute element={<WardenRooms />} />} />
                         <Route path='WardenRoomAssignNeed' element={<PrivateRoute element={<WardenRoomAssignNeed />} />} />
@@ -103,9 +110,15 @@ function App() {
                         <Route path='AssignStudentToRoom/:id' element={<PrivateRoute element={<AssignStundetToRoomSp />} />} />
                         <Route path='AlreadyAssigned' element={<PrivateRoute element={<AlreadyAssigned />} />} />
 
-                        <Route path='ExtraNeeds' element={<PrivateRoute element={<ExtraNeeds />} />} />
+                        {/* Student Standalone Isolated Pages */}
+                        <Route path='SpecialNeed' element={<PrivateRoute element={<StudentSpecialNeedPage />} />} />
+                        <Route path='special-need' element={<PrivateRoute element={<StudentSpecialNeedPage />} />} />
+                        <Route path='ExtraNeeds' element={<PrivateRoute element={<StudentExtraNeedPage />} />} />
+                        <Route path='extra-needs' element={<PrivateRoute element={<StudentExtraNeedPage />} />} />
                         <Route path='CreateExtraNeeds' element={<PrivateRoute element={<CreateExtraNeeds />} />} />
                         <Route path='EmergencyContact' element={<PrivateRoute element={<EmergencyContact />} />} />
+
+                        {/* Warden / Admin Special and Extra Needs Portals */}
                         <Route path='StdExtraNeeds' element={<PrivateRoute element={<StdExtraNeeds />} />} />
                         <Route path='AdminExtraNeeds' element={<PrivateRoute element={<AdminExtraNeeds />} />} />
                         <Route path='AdminCreateSpecialNeed' element={<PrivateRoute element={<AdminCreateSpecialNeed />} />} />
@@ -113,6 +126,10 @@ function App() {
                         <Route path='Reports' element={<PrivateRoute element={<Reports />} />} />
 
                     </Route>
+
+                    {/* Direct Student Route Aliases */}
+                    <Route path='/student/special-need' element={<PrivateRoute element={<StudentSpecialNeedPage />} />} />
+                    <Route path='/student/extra-needs' element={<PrivateRoute element={<StudentExtraNeedPage />} />} />
 
                 </Routes>
             </BrowserRouter>

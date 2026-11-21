@@ -35,6 +35,13 @@ const StdCreateManually = () => {
 
     const handleCreateStudent = async (e) => {
         e.preventDefault()
+
+        const cleanEnrol = (studentData.enrolmentNo || '').trim()
+        if (!cleanEnrol.includes('/') || !/^[A-Za-z]+(?:\/[A-Za-z0-9]+)+\/\d+$/.test(cleanEnrol)) {
+            alert("Please enter a valid University of Peradeniya Enrollment Number containing slashes (e.g., M/20/175, E/21/002, A/19/250).")
+            return
+        }
+
         try {
             const res = await axios.post(
                 import.meta.env.VITE_APP_API + '/student/create-student-manually',
@@ -63,7 +70,7 @@ const StdCreateManually = () => {
 
             <form onSubmit={handleCreateStudent}>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <DefaultInput label="Enrolment No" name="enrolmentNo" value={studentData.enrolmentNo} onChange={handleInputChange} required />
+                    <DefaultInput label="Enrolment No" name="enrolmentNo" value={studentData.enrolmentNo} onChange={handleInputChange} placeholder="e.g., M/20/175" required />
                     <DefaultInput label="Name" name="name" value={studentData.name} onChange={handleInputChange} />
                     <DefaultInput label="A/L District" name="alDistrict" value={studentData.alDistrict} onChange={handleInputChange} />
                     <Dropdown

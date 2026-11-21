@@ -4,8 +4,43 @@ const SpecialNeeds = require("../model/SpecialNeeds");
 const Student = require("../model/Student");
 const User = require("../model/User");
 const Warden = require("../model/Warden");
+const mongoose = require('mongoose');
 const { getActiveWardenAssignments, getActiveWardenHostelIds } = require('../utils/wardenAssignments');
 
+function getCompatibleRoomFilter(id) {
+    const normalizedId = String(id || '').trim();
+    if (!normalizedId) return null;
+
+    const candidates = [normalizedId];
+    if (mongoose.Types.ObjectId.isValid(normalizedId)) {
+        candidates.unshift(new mongoose.Types.ObjectId(normalizedId));
+    }
+
+    return {
+        _id: candidates.length === 1
+            ? candidates[0]
+            : { $in: candidates }
+    };
+}
+
+async function findRoomByIdCompatible(id) {
+    const normalizedId = String(id || '').trim();
+    if (!normalizedId) return null;
+
+    try {
+        const found = await Room.findById(normalizedId);
+        if (found) return found;
+    } catch (e) {}
+
+    const filter = getCompatibleRoomFilter(normalizedId);
+    if (filter) {
+        const rawDoc = await Room.collection.findOne(filter);
+        if (rawDoc) {
+            return Room.hydrate(rawDoc);
+        }
+    }
+    return null;
+}
 
 const RoomController = {
     getallrooms: async (req, res) => {
@@ -18,7 +53,8 @@ const RoomController = {
 
         }
         catch (err) {
-            console.log(err)
+            console.error('Error fetching rooms:', err)
+            return res.status(500).json({ Error: 'Server error fetching rooms' })
         }
     },
 
@@ -26,74 +62,238 @@ const RoomController = {
         try {
             const { id } = req.params
 
-            const getroomdata = await Room.findById(id)
-                .populate('students')
-                .populate('hostelID');
+            const getroomdata = await findRoomByIdCompatible(id);
+
+            if (!getroomdata) {
+                return res.status(404).json({ Error: 'Room not found' })
+            }
+
+            try {
+                await getroomdata.populate('students');
+                await getroomdata.populate('hostelID');
+            } catch (popErr) {
+                console.warn('Populate warning:', popErr.message);
+            }
 
             return res.json({ Result: getroomdata })
         }
         catch (err) {
-            console.log(err)
+            console.error('Error fetching room:', err)
+            return res.status(500).json({ Error: 'Server error fetching room' })
         }
     },
 
     updateRoomCapasity: async (req, res) => {
         try {
             const {
+                _id,
                 roomID,
+                newRoomID,
                 capasity,
                 gender,
-            } = req.body
+                status,
+                currentOccupants,
+                studentIds,
+            } = req.body;
+
+            const lookupKey = _id || roomID;
+            if (!lookupKey) {
+                return res.json({ Error: "Room identifier is required" });
+            }
+
+            let checkroom = await findRoomByIdCompatible(lookupKey);
+            if (!checkroom) {
+                checkroom = await Room.findOne({ roomID: lookupKey });
+            }
+            if (!checkroom) {
+                return res.json({ Error: "Room not found" });
+            }
 
             const updateData = {};
 
+            // Update Room ID / Name if changed
+            const targetRoomID = (newRoomID !== undefined && newRoomID !== null) ? newRoomID.trim() : (roomID !== undefined && roomID !== null ? roomID.trim() : null);
+            if (targetRoomID && targetRoomID !== checkroom.roomID) {
+                const duplicateRoom = await Room.findOne({ roomID: targetRoomID, _id: { $ne: checkroom._id } });
+                if (duplicateRoom) {
+                    return res.json({ Error: `Room ID '${targetRoomID}' already exists` });
+                }
+                updateData.roomID = targetRoomID;
+            }
+
+            // Update Capacity
             if (capasity !== undefined && capasity !== null && capasity !== '') {
                 const parsedCapasity = Number(capasity);
                 if (Number.isNaN(parsedCapasity) || parsedCapasity < 1) {
-                    return res.json({ Error: "Invalid room capasity" })
+                    return res.json({ Error: "Invalid room capacity" });
                 }
-                if (parsedCapasity > 7) {
-                    return res.json({ Error: "The Max capasity is 6" })
+                if (parsedCapasity > 10) {
+                    return res.json({ Error: "Maximum capacity is 10" });
                 }
                 updateData.capasity = parsedCapasity;
             }
 
+            // Update Gender
             if (gender !== undefined && gender !== null && gender !== '') {
                 const allowedGenders = ['Male', 'Female', 'REV'];
                 if (!allowedGenders.includes(gender)) {
-                    return res.json({ Error: "Invalid room gender" })
+                    return res.json({ Error: "Invalid room gender" });
                 }
                 updateData.gender = gender;
             }
 
+            // Update Status
+            if (status) {
+                updateData.status = status;
+            }
+
+            // Handle Students assignment / unassignment
+            if (studentIds !== undefined && Array.isArray(studentIds)) {
+                const currentStudentIds = (checkroom.students || []).map(s => (s?._id || s).toString());
+                const newStudentIds = studentIds.map(s => String(s?._id || s)).filter(Boolean);
+
+                const studentsToRemove = currentStudentIds.filter(id => !newStudentIds.includes(id));
+                const studentsToAdd = newStudentIds.filter(id => !currentStudentIds.includes(id));
+
+                // Process removals
+                for (const stId of studentsToRemove) {
+                    let student = null;
+                    try {
+                        if (mongoose.Types.ObjectId.isValid(stId)) {
+                            student = await Student.findById(stId);
+                        }
+                    } catch (e) {}
+                    if (!student) student = await Student.findOne({ enrolmentNo: stId });
+
+                    // Clear room allocation
+                    await Allocation.updateMany(
+                        {
+                            roomId: checkroom._id,
+                            $or: [
+                                { studentId: stId },
+                                { regNo: stId },
+                                ...(student ? [{ regNo: student.enrolmentNo }, { studentId: student._id }] : [])
+                            ]
+                        },
+                        { $set: { roomId: null } }
+                    );
+
+                    // Check if student is assigned to any other room
+                    if (student) {
+                        const otherActiveAlloc = await Allocation.findOne({
+                            $or: [{ studentId: student._id }, { regNo: student.enrolmentNo }],
+                            roomId: { $ne: null }
+                        });
+                        if (!otherActiveAlloc) {
+                            student.isAssign = false;
+                            await student.save();
+                        }
+                    }
+                }
+
+                // Process additions
+                for (const stId of studentsToAdd) {
+                    let student = null;
+                    try {
+                        if (mongoose.Types.ObjectId.isValid(stId)) {
+                            student = await Student.findById(stId);
+                        }
+                    } catch (e) {}
+                    if (!student) student = await Student.findOne({ enrolmentNo: stId });
+
+                    let alloc = await Allocation.findOne({
+                        active: true,
+                        $or: [
+                            { studentId: stId },
+                            { regNo: stId },
+                            ...(student ? [{ regNo: student.enrolmentNo }, { studentId: student._id }] : [])
+                        ]
+                    });
+
+                    if (alloc) {
+                        alloc.roomId = checkroom._id;
+                        alloc.hostelID = alloc.hostelID || checkroom.hostelID;
+                        alloc.inDate = new Date();
+                        await alloc.save();
+                    } else {
+                        await Allocation.create({
+                            studentId: student ? student._id : stId,
+                            regNo: student ? student.enrolmentNo : stId,
+                            roomId: checkroom._id,
+                            hostelID: checkroom.hostelID,
+                            active: true,
+                            inDate: new Date()
+                        });
+                    }
+
+                    if (student) {
+                        student.isAssign = true;
+                        student.hostelAssignedDate = new Date();
+                        await student.save();
+                    }
+                }
+
+                updateData.students = newStudentIds;
+
+                // Sync occupants if not explicitly given
+                if (currentOccupants === undefined || currentOccupants === null || currentOccupants === '') {
+                    updateData.currentOccupants = newStudentIds.length;
+                }
+            }
+
+            // Update Current Occupants override if given
+            if (currentOccupants !== undefined && currentOccupants !== null && currentOccupants !== '') {
+                const parsedOccupants = Number(currentOccupants);
+                if (!Number.isNaN(parsedOccupants) && parsedOccupants >= 0) {
+                    updateData.currentOccupants = parsedOccupants;
+                }
+            }
+
+            // Auto-adjust status if not explicitly set
+            const effectiveCapacity = updateData.capasity !== undefined ? updateData.capasity : checkroom.capasity;
+            const effectiveOccupants = updateData.currentOccupants !== undefined ? updateData.currentOccupants : checkroom.currentOccupants;
+
+            if (!status) {
+                if (effectiveOccupants >= effectiveCapacity) {
+                    updateData.status = 'Full';
+                } else if (checkroom.status === 'Full' && effectiveOccupants < effectiveCapacity) {
+                    updateData.status = 'Availabe';
+                }
+            }
+
             if (Object.keys(updateData).length === 0) {
-                return res.json({ Error: "No data provided for update" })
+                return res.json({ Error: "No data provided for update" });
             }
 
-            const checkroom = await Room.findById(roomID)
-            if (!checkroom) {
-                return res.json({ Error: "Room not found" })
-            }
-
-            if (updateData.capasity !== undefined && checkroom.currentOccupants > updateData.capasity) {
-                return res.json({ Error: "Current occupants exceed new capasity" })
-            }
-
-            const updatedRoom = await Room.findByIdAndUpdate(
-                roomID,
+            // Update document
+            let updatedRoom = await Room.findByIdAndUpdate(
+                checkroom._id,
                 { $set: updateData },
                 { new: true }
             );
 
-            if (updatedRoom) {
-                return res.json({ Status: "Success", Message: "Room Updated Success", Result: updatedRoom })
+            if (!updatedRoom) {
+                const roomFilter = getCompatibleRoomFilter(checkroom._id);
+                if (roomFilter) {
+                    await Room.collection.updateOne(roomFilter, { $set: updateData });
+                }
             }
-            else {
-                return res.json({ Error: "Internal Server Error Whilte Updating Room" })
+
+            const populatedRoom = await Room.findById(checkroom._id).populate('students').populate('hostelID');
+
+            if (populatedRoom) {
+                return res.json({
+                    Status: "Success",
+                    Message: "Room details updated successfully",
+                    Result: populatedRoom
+                });
+            } else {
+                return res.json({ Error: "Internal server error while updating room" });
             }
         }
         catch (err) {
-            console.log(err)
+            console.error("updateRoomCapasity error:", err);
+            return res.status(500).json({ Error: "Internal Server Error" });
         }
     },
 
@@ -215,7 +415,7 @@ const RoomController = {
             console.error(err);
             res.status(500).json({ message: 'Server error during student assignment' });
         }
-    }
+    },
 
 
     // studentAssignNeed: async (req, res) => {
@@ -295,6 +495,109 @@ const RoomController = {
     //         return res.json({ message: 'Server error', students: [] });
     //     }
     // }
+
+    getAvailableStudentsForRoom: async (req, res) => {
+        try {
+            const { id } = req.params;
+            let room = await findRoomByIdCompatible(id);
+            if (!room) {
+                room = await Room.findOne({ roomID: id });
+            }
+            if (!room) {
+                return res.status(404).json({ Error: "Room not found" });
+            }
+
+            // Find unassigned active allocations for this hostel
+            const allocations = await Allocation.find({
+                hostelID: room.hostelID,
+                active: true,
+                $or: [{ roomId: null }, { roomId: { $exists: false } }]
+            });
+
+            if (!allocations.length) {
+                return res.json({ Result: [] });
+            }
+
+            const objectIds = [];
+            const enrolmentNos = [];
+            allocations.forEach(a => {
+                if (a.studentId) objectIds.push(a.studentId.toString());
+                if (a.regNo) {
+                    const reg = String(a.regNo);
+                    if (mongoose.Types.ObjectId.isValid(reg)) {
+                        objectIds.push(reg);
+                    } else {
+                        enrolmentNos.push(reg);
+                    }
+                }
+            });
+
+            const queryConditions = [];
+            if (objectIds.length) queryConditions.push({ _id: { $in: objectIds } });
+            if (enrolmentNos.length) queryConditions.push({ enrolmentNo: { $in: enrolmentNos } });
+
+            if (!queryConditions.length) {
+                return res.json({ Result: [] });
+            }
+
+            const studentQuery = { $or: queryConditions };
+            if (room.gender && room.gender !== 'REV') {
+                studentQuery.sex = new RegExp(`^${room.gender}$`, 'i');
+            }
+
+            const students = await Student.find(studentQuery).select('_id name enrolmentNo sex alDistrict faculty course');
+
+            // Exclude students currently in the room
+            const currentRoomStudents = (room.students || []).map(s => String(s?._id || s));
+            const availableStudents = students.filter(s => !currentRoomStudents.includes(String(s._id)));
+
+            return res.json({ Result: availableStudents });
+        } catch (err) {
+            console.error("Error in getAvailableStudentsForRoom:", err);
+            return res.status(500).json({ Error: "Server error fetching available students" });
+        }
+    },
+
+    deleteRoom: async (req, res) => {
+        try {
+            const { id } = req.params;
+            const room = await findRoomByIdCompatible(id);
+            if (!room) {
+                return res.status(404).json({ Error: "Room not found" });
+            }
+
+            if (room.currentOccupants > 0 || (room.students && room.students.length > 0)) {
+                return res.status(400).json({ Error: "Cannot delete room with assigned occupants. Please unassign students first." });
+            }
+
+            // Decrement hostel room count if linked
+            if (room.hostelID) {
+                const Hostel = require('../model/Hostel');
+                const hostelFilter = {
+                    $or: [
+                        { _id: String(room.hostelID) },
+                        ...(mongoose.Types.ObjectId.isValid(String(room.hostelID)) ? [{ _id: new mongoose.Types.ObjectId(String(room.hostelID)) }] : [])
+                    ]
+                };
+                await Hostel.collection.updateOne(hostelFilter, { $inc: { roomCount: -1 } });
+            }
+
+            // Remove any allocations for this room just in case
+            await Allocation.deleteMany({ roomId: room._id });
+
+            const delFilter = getCompatibleRoomFilter(room._id || id);
+            if (delFilter) {
+                await Room.collection.deleteOne(delFilter);
+            } else {
+                await Room.findByIdAndDelete(id);
+            }
+
+            return res.json({ Status: "Success", Message: "Room deleted successfully" });
+        } catch (err) {
+            console.error("Error deleting room:", err);
+            return res.status(500).json({ Error: "Failed to delete room" });
+        }
+    }
 };
 
 module.exports = RoomController;

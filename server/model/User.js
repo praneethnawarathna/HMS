@@ -1,6 +1,10 @@
 const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema({
+    _id: {
+        type: String,
+        default: () => new mongoose.Types.ObjectId().toString()
+    },
     username: { type: String, required: true, unique: true },
     email: { type: String, required: true, unique: true },
     profileImage: { type: String, default: '' },
@@ -8,7 +12,7 @@ const userSchema = new mongoose.Schema({
     active: { type: Boolean, default: false },
     password: { type: String, required: true },
     roles: [{
-        type: mongoose.Schema.Types.ObjectId,
+        type: String,
         ref: 'Role'
     }],
 }, {timestamps: true });

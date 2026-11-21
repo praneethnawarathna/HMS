@@ -1,11 +1,15 @@
 const mongoose = require('mongoose');
 
 const RoomSchema = new mongoose.Schema({
+    _id: {
+        type: String,
+        default: () => new mongoose.Types.ObjectId().toString()
+    },
     roomID: { type: String, required: true, unique: true },
     currentOccupants: { type: Number, default: 0 },
     capasity: { type: Number, required: true, default: 4 },
     students: [{
-        type: mongoose.Schema.Types.ObjectId,
+        type: String,
         ref: 'Student'
     }],
     gender: {
@@ -13,7 +17,7 @@ const RoomSchema = new mongoose.Schema({
         enum: ['Male', 'Female', 'REV'],
         required: true,
     },
-    hostelID: { type: mongoose.Schema.Types.ObjectId, ref: 'Hostel' },
+    hostelID: { type: String, ref: 'Hostel', index: true },
     status: {
         type: String,
         enum: ['Availabe', 'Repair', 'Full'],

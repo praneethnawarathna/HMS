@@ -31,4 +31,8 @@ router.get('/emergency-contact', authMiddleware, checkPermission('emergency-cont
 
 router.get('/get-student-needs/:email', authMiddleware, checkPermission('get-student-needs'), StudentController.getNeedsStudents)
 
+// Multi-year assignment history routes
+router.get('/allocation-history/:id', authMiddleware, StudentController.getStudentAllocationHistory)
+router.post('/promote-batch', authMiddleware, StudentController.promoteBatch)
+
 module.exports = router;

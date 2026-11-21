@@ -1,8 +1,9 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import axios from 'axios';
 import { getUserInfoFromToken } from '../../utils/auth';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
+import { Shield, RotateCw, CreditCard } from 'lucide-react';
 
 const formatDateYmd = (value) => {
     if (!value) return '';
@@ -99,6 +100,10 @@ const WardenPayments = () => {
     const [successMsg, setSuccessMsg] = useState(null);
     const [processingId, setProcessingId] = useState(null);
     const [customFees, setCustomFees] = useState({});
+    const [customDates, setCustomDates] = useState({});
+    const [defaultPaymentDate, setDefaultPaymentDate] = useState(() => {
+        return new Date().toISOString().split('T')[0];
+    });
 
     const token = localStorage.getItem('login');
     const currentUser = useMemo(() => getUserInfoFromToken(), []);
@@ -117,58 +122,54 @@ const WardenPayments = () => {
     const [hostels, setHostels] = useState([]);
     const [selectedHostelId, setSelectedHostelId] = useState('');
 
+    const fetchPayments = useCallback(async () => {
+        if (!token) {
+            setError('Unauthorized: missing token');
+            setLoading(false);
+            return;
+        }
+
+        const apiBase = import.meta.env.VITE_APP_API;
+        const paymentsUrl = isWarden
+            ? `${apiBase}/warden/payments`
+            : isPrivilegedViewer
+                ? `${apiBase}/admin/payments${selectedHostelId ? `?hostelId=${selectedHostelId}` : ''}`
+                : null;
+
+        if (!paymentsUrl) {
+            setError('Forbidden: you do not have access to payments');
+            setLoading(false);
+            return;
+        }
+
+        if (isPrivilegedViewer && !isWarden && !selectedHostelId) {
+            setPayments([]);
+            setLoading(false);
+            return;
+        }
+
+        try {
+            setLoading(true);
+            setError(null);
+
+            const payRes = await axios.get(paymentsUrl, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            const paymentData = payRes.data.Result || payRes.data.result || [];
+            setPayments(paymentData);
+        } catch (err) {
+            const serverMsg = err?.response?.data?.Error || err?.response?.data?.message || JSON.stringify(err?.response?.data) || err.message;
+            console.error('WardenPayments fetch error', err?.response?.data || err.message);
+            setError(`Failed to load payments or students: ${serverMsg}`);
+        } finally {
+            setLoading(false);
+        }
+    }, [token, isWarden, isPrivilegedViewer, selectedHostelId]);
+
     useEffect(() => {
-        const fetchData = async () => {
-            if (!token) {
-                setError('Unauthorized: missing token');
-                setLoading(false);
-                return;
-            }
-
-
-            const apiBase = import.meta.env.VITE_APP_API;
-            const paymentsUrl = isWarden
-                ? `${apiBase}/warden/payments`
-                : isPrivilegedViewer
-                    ? `${apiBase}/admin/payments${selectedHostelId ? `?hostelId=${selectedHostelId}` : ''}`
-                    : null;
-
-            if (!paymentsUrl) {
-                setError('Forbidden: you do not have access to payments');
-                setLoading(false);
-                return;
-            }
-
-            if (isPrivilegedViewer && !isWarden && !selectedHostelId) {
-                setPayments([]);
-                setLoading(false);
-                return;
-            }
-
-            try {
-                setLoading(true);
-                setError(null);
-
-
-
-                const payRes = await axios.get(paymentsUrl, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-
-                const paymentData = payRes.data.Result || payRes.data.result || [];
-                setPayments(paymentData);
-            } catch (err) {
-                // Provide detailed error information to the UI for troubleshooting
-                const serverMsg = err?.response?.data?.Error || err?.response?.data?.message || JSON.stringify(err?.response?.data) || err.message;
-                console.error('WardenPayments fetch error', err?.response?.data || err.message);
-                setError(`Failed to load payments or students: ${serverMsg}`);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchData();
-    }, [token, currentUser, isWarden, isPrivilegedViewer, selectedHostelId]);
+        fetchPayments();
+    }, [fetchPayments]);
 
     // Fetch hostels list for privileged viewers (admin/director) so they can filter payments by hostel
     useEffect(() => {
@@ -415,37 +416,35 @@ const WardenPayments = () => {
     const handleMarkAsPaid = async (studentId) => {
         const studentRow = payments.find(p => p.studentId?._id === studentId);
         let fee = customFees[studentId];
-        if (fee === undefined) {
-            fee = studentRow?.amount || 0;
+        if (fee === undefined || fee === null || String(fee).trim() === '' || Number(fee) <= 0) {
+            fee = (studentRow?.amount && Number(studentRow.amount) > 0) ? Number(studentRow.amount) : 1500;
+        } else {
+            fee = Number(fee);
         }
 
-        if (!fee || String(fee).trim() === '' || Number(fee) <= 0) {
-            setError('Please enter a valid Hall Fee amount greater than 0 before marking as paid.');
-            return;
-        }
-
-        if (!window.confirm("Are you sure you want to mark this hall fee payment as paid?")) return;
+        const selectedDate = customDates[studentId] || (studentRow?.paidDate ? formatDateOnly(studentRow.paidDate) : defaultPaymentDate);
 
         setProcessingId(studentId);
         setError(null);
         setSuccessMsg(null);
         try {
-            const res = await axios.put(`${import.meta.env.VITE_APP_API}/warden/payments/${studentId}/mark-paid`, { amount: fee }, {
+            const res = await axios.put(`${import.meta.env.VITE_APP_API}/warden/payments/${studentId}/mark-paid`, {
+                amount: fee,
+                paidDate: selectedDate
+            }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
             if (res.data.Status === 'Success') {
-                setSuccessMsg("Payment marked as paid successfully.");
-                // Update local state without refetching to be fast
+                setSuccessMsg("Payment marked as Paid!");
                 setPayments(prev => prev.map(p => {
                     if (p.studentId?._id === studentId) {
-                        return { ...p, paymentStatus: 'Paid', paidDate: new Date().toISOString(), amount: fee };
+                        return { ...p, paymentStatus: 'Paid', paidDate: selectedDate, amount: fee };
                     }
                     return p;
                 }));
-
-                // Clear success message after 3 seconds
-                setTimeout(() => setSuccessMsg(null), 3000);
+                setCustomFees(prev => ({ ...prev, [studentId]: fee }));
+                setTimeout(() => setSuccessMsg(null), 2500);
             } else {
                 setError(res.data.Error || 'Failed to mark as paid');
             }
@@ -454,6 +453,111 @@ const WardenPayments = () => {
             setError(err.response?.data?.Error || 'Failed to mark as paid');
         } finally {
             setProcessingId(null);
+        }
+    };
+
+    const handleUpdatePayment = async (studentId) => {
+        const studentRow = payments.find(p => p.studentId?._id === studentId);
+        let fee = customFees[studentId];
+        if (fee === undefined || fee === null || String(fee).trim() === '') {
+            fee = (studentRow?.amount && Number(studentRow.amount) > 0) ? Number(studentRow.amount) : 1500;
+        } else {
+            fee = Number(fee);
+            if (fee <= 0) fee = 1500;
+        }
+
+        const selectedDate = customDates[studentId] || (studentRow?.paidDate ? formatDateOnly(studentRow.paidDate) : defaultPaymentDate);
+
+        setProcessingId(studentId);
+        setError(null);
+        setSuccessMsg(null);
+        try {
+            const res = await axios.put(`${import.meta.env.VITE_APP_API}/warden/payments/${studentId}/mark-paid`, {
+                amount: fee,
+                paidDate: selectedDate
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            if (res.data.Status === 'Success') {
+                setSuccessMsg("Payment updated successfully.");
+                setPayments(prev => prev.map(p => {
+                    if (p.studentId?._id === studentId) {
+                        return { ...p, paidDate: selectedDate, amount: Number(fee) };
+                    }
+                    return p;
+                }));
+                setTimeout(() => setSuccessMsg(null), 2500);
+            } else {
+                setError(res.data.Error || 'Failed to update payment');
+            }
+        } catch (err) {
+            console.error('Update payment error:', err);
+            setError(err.response?.data?.Error || 'Failed to update payment');
+        } finally {
+            setProcessingId(null);
+        }
+    };
+
+    const handleUndo = async (studentId) => {
+        setProcessingId(studentId);
+        setError(null);
+        setSuccessMsg(null);
+        try {
+            const res = await axios.put(`${import.meta.env.VITE_APP_API}/warden/payments/${studentId}/mark-paid`, {
+                status: 'Pending'
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            if (res.data.Status === 'Success') {
+                setSuccessMsg("Payment reverted to Pending.");
+                setPayments(prev => prev.map(p => {
+                    if (p.studentId?._id === studentId) {
+                        return { ...p, paymentStatus: 'Pending', paidDate: null, amount: 0 };
+                    }
+                    return p;
+                }));
+                setCustomFees(prev => {
+                    const copy = { ...prev };
+                    delete copy[studentId];
+                    return copy;
+                });
+                setTimeout(() => setSuccessMsg(null), 2500);
+            } else {
+                setError(res.data.Error || 'Failed to revert payment');
+            }
+        } catch (err) {
+            console.error('Undo error:', err);
+            setError(err.response?.data?.Error || 'Failed to revert payment');
+        } finally {
+            setProcessingId(null);
+        }
+    };
+
+    const handleRevertToPending = handleUndo;
+
+    const handleUpdatePaymentDate = async (studentId, newDate) => {
+        if (!newDate) return;
+        const studentRow = payments.find(p => p.studentId?._id === studentId);
+        const fee = customFees[studentId] !== undefined ? customFees[studentId] : (studentRow?.amount || 1500);
+        try {
+            await axios.put(`${import.meta.env.VITE_APP_API}/warden/payments/${studentId}/mark-paid`, {
+                amount: fee,
+                paidDate: newDate
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setPayments(prev => prev.map(p => {
+                if (p.studentId?._id === studentId) {
+                    return { ...p, paidDate: newDate };
+                }
+                return p;
+            }));
+            setSuccessMsg("Payment date updated successfully.");
+            setTimeout(() => setSuccessMsg(null), 2500);
+        } catch (err) {
+            console.error('Update payment date error:', err);
         }
     };
 
@@ -466,14 +570,30 @@ const WardenPayments = () => {
         return d.toISOString().split('T')[0];
     };
 
-    if (loading) return <div className="p-4 text-center">Loading...</div>;
-
     return (
         <>
-            <div className={`mt-8 relative ${showPreviewModal ? 'print:hidden' : ''}`}>
-                <div className="mb-4 font-semibold text-gray-700 text-2xl">Manage Payments</div>
-                {error && <div className="mb-4 p-4 text-red-600 bg-red-50 rounded-lg border border-red-100">{error}</div>}
-                {successMsg && <div className="mb-4 p-4 text-green-600 bg-green-50 rounded-lg border border-green-100">{successMsg}</div>}
+            <div className={`space-y-6 relative ${showPreviewModal ? 'print:hidden' : ''}`}>
+                {/* Hero Section */}
+                <div className="bg-gradient-to-r from-[#6b0f14] via-[#7d1319] to-[#8d1820] text-white rounded-2xl p-6 shadow-md relative overflow-hidden">
+                    <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                        <div>
+                            <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur-sm rounded-full text-xs font-semibold uppercase tracking-wider text-amber-200 mb-2 border border-white/10">
+                                <Shield size={14} className="text-amber-300" />
+                                Warden Financial Portal
+                            </div>
+                            <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-2.5">
+                                <CreditCard className="text-amber-300" size={28} />
+                                Manage Payments
+                            </h1>
+                            <p className="text-white/80 text-sm mt-1">
+                                Track hall fee payments, update student payment records, and generate financial reports for your hostel.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                {error && <div className="p-4 text-sm font-medium text-red-700 bg-red-50 rounded-xl border border-red-200">{error}</div>}
+                {successMsg && <div className="p-4 text-sm font-medium text-green-700 bg-green-50 rounded-xl border border-green-200">{successMsg}</div>}
 
 
 
@@ -490,8 +610,19 @@ const WardenPayments = () => {
                 )}
 
                 {(isWarden || isPrivilegedViewer) && (
-                    <div className="mb-3 flex justify-end">
-                        <button onClick={() => setShowFilterModal(true)} className="px-4 py-2 bg-[#6b0f14] text-white rounded hover:bg-[#4f0a0f] shadow-sm">
+                    <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                        {isWarden && (
+                            <div className="flex items-center gap-2 text-sm text-gray-700 bg-white px-3.5 py-2 rounded-xl border border-gray-200 shadow-sm">
+                                <span className="font-semibold text-xs text-[#6b0f14]">Default Payment Date:</span>
+                                <input
+                                    type="date"
+                                    value={defaultPaymentDate}
+                                    onChange={(e) => setDefaultPaymentDate(e.target.value)}
+                                    className="px-2.5 py-1 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6b0f14]/30 focus:border-[#6b0f14] bg-white cursor-pointer shadow-sm text-gray-700 font-medium"
+                                />
+                            </div>
+                        )}
+                        <button onClick={() => setShowFilterModal(true)} className="px-4 py-2 bg-[#6b0f14] text-white rounded-lg hover:bg-[#4f0a0f] shadow-sm ml-auto text-sm font-medium">
                             Preview Report
                         </button>
                     </div>
@@ -512,9 +643,16 @@ const WardenPayments = () => {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                            {payments.length === 0 ? (
+                            {loading && payments.length === 0 ? (
                                 <tr>
-                                    <td colSpan="9" className="px-6 py-4 text-center text-gray-500">
+                                    <td colSpan="9" className="px-6 py-10 text-center text-gray-500 text-sm">
+                                        <RotateCw size={18} className="animate-spin inline-block mr-2 text-[#6b0f14]" />
+                                        Loading payment records...
+                                    </td>
+                                </tr>
+                            ) : payments.length === 0 ? (
+                                <tr>
+                                    <td colSpan="9" className="px-6 py-8 text-center text-gray-500">
                                         No payment records found
                                     </td>
                                 </tr>
@@ -530,37 +668,89 @@ const WardenPayments = () => {
                                             <td className="px-6 py-4">{p.hostelName || '-'}</td>
                                             <td className="px-6 py-4">{p.roomNo || '-'}</td>
                                             <td className="px-6 py-4">
-                                                {!isPaid && isWarden ? (
-                                                    <input
-                                                        type="number"
-                                                        className="w-24 px-2 py-1 border rounded"
-                                                        placeholder="Amount"
-                                                        value={customFees[sId] !== undefined ? customFees[sId] : (isPaid ? p.amount : 0)}
-                                                        onChange={(e) => setCustomFees(prev => ({ ...prev, [sId]: e.target.value }))}
-                                                    />
+                                                {isWarden ? (
+                                                    <div className="flex items-center gap-1.5">
+                                                        <span className="text-xs text-gray-400 font-medium">LKR</span>
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            className="w-24 px-2 py-1 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6b0f14]/30 focus:border-[#6b0f14] bg-white font-medium shadow-sm"
+                                                            placeholder="1500"
+                                                            value={
+                                                                customFees[sId] !== undefined
+                                                                    ? customFees[sId]
+                                                                    : (p.amount && Number(p.amount) > 0 ? p.amount : 1500)
+                                                            }
+                                                            onChange={(e) => setCustomFees(prev => ({ ...prev, [sId]: e.target.value }))}
+                                                        />
+                                                    </div>
                                                 ) : (
                                                     `LKR ${p.amount}`
                                                 )}
                                             </td>
                                             <td className="px-6 py-4">
-                                                <span className={`px-3 py-1 text-xs font-semibold rounded-full ${isPaid ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-red-100 text-red-800 border border-red-200'}`}>
-                                                    {isPaid ? 'Paid' : 'Pending'}
-                                                </span>
+                                                {isWarden ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => isPaid ? handleUndo(sId) : handleMarkAsPaid(sId)}
+                                                        disabled={processingId === sId}
+                                                        className={`px-3 py-1 text-xs font-semibold rounded-full transition-all cursor-pointer shadow-xs ${
+                                                            isPaid
+                                                                ? 'bg-green-100 text-green-800 border border-green-200 hover:bg-green-200'
+                                                                : 'bg-red-100 text-red-800 border border-red-200 hover:bg-red-200'
+                                                        }`}
+                                                        title={isPaid ? "Click to Undo (revert to Pending)" : "Click to Mark as Paid"}
+                                                    >
+                                                        {isPaid ? 'Paid' : 'Pending'}
+                                                    </button>
+                                                ) : (
+                                                    <span className={`px-3 py-1 text-xs font-semibold rounded-full ${isPaid ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-red-100 text-red-800 border border-red-200'}`}>
+                                                        {isPaid ? 'Paid' : 'Pending'}
+                                                    </span>
+                                                )}
                                             </td>
-                                            <td className="px-6 py-4">{formatDateOnly(p.paidDate)}</td>
+                                            <td className="px-6 py-4">
+                                                {isWarden ? (
+                                                    <input
+                                                        type="date"
+                                                        className="px-2.5 py-1 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6b0f14]/30 focus:border-[#6b0f14] bg-white cursor-pointer hover:border-[#6b0f14] shadow-sm text-gray-700 font-medium"
+                                                        value={
+                                                            customDates[sId] !== undefined
+                                                                ? customDates[sId]
+                                                                : (p.paidDate ? formatDateOnly(p.paidDate) : defaultPaymentDate)
+                                                        }
+                                                        onChange={(e) => {
+                                                            const newDate = e.target.value;
+                                                            setCustomDates(prev => ({ ...prev, [sId]: newDate }));
+                                                        }}
+                                                    />
+                                                ) : (
+                                                    <span className="text-gray-700 font-medium">{formatDateOnly(p.paidDate)}</span>
+                                                )}
+                                            </td>
                                             {isWarden && (
                                                 <td className="px-6 py-4">
                                                     {!isPaid ? (
                                                         <button
                                                             onClick={() => handleMarkAsPaid(sId)}
                                                             disabled={processingId === sId}
-                                                            className={`px-3 py-1.5 text-sm font-medium text-white rounded-md transition-colors shadow-sm
-                                                        ${processingId === sId ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#6b0f14] hover:bg-[#4f0a0f]'}`}
+                                                            className={`px-3.5 py-1.5 text-xs font-semibold text-white rounded-lg transition-all shadow-sm
+                                                        ${processingId === sId ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#6b0f14] hover:bg-[#4f0a0f] active:scale-95'}`}
                                                         >
                                                             {processingId === sId ? 'Processing...' : 'Mark as Paid'}
                                                         </button>
                                                     ) : (
-                                                        <span className="text-gray-400 text-sm italic">Paid</span>
+                                                        <button
+                                                            onClick={() => handleUndo(sId)}
+                                                            disabled={processingId === sId}
+                                                            className="px-3.5 py-1.5 text-xs font-semibold text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300 rounded-lg transition-all shadow-sm active:scale-95 disabled:opacity-50 flex items-center gap-1.5"
+                                                            title="Undo payment (revert to Pending)"
+                                                        >
+                                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                                                            </svg>
+                                                            {processingId === sId ? 'Undoing...' : 'Undo'}
+                                                        </button>
                                                     )}
                                                 </td>
                                             )}

@@ -176,8 +176,6 @@
   }
 }
 
-/* Import a modern font and apply globally to the app when App.css is loaded */
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
 html,body,#root{ height:100%; }
 body{ font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; }
 

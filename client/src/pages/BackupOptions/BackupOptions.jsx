@@ -4,6 +4,7 @@ import DefaultBtn from '../../components/Buttons/DefaultBtn';
 import DefaultInput from '../../components/Form/DefaultInput';
 import Dropdown from '../../components/Form/Dropdown';
 import FileInput from '../../components/Form/FileInput';
+import { DatabaseBackup, Download, UploadCloud, Settings2 } from 'lucide-react';
 
 const BackupOptions = () => {
     const token = localStorage.getItem('login');
@@ -228,7 +229,27 @@ const BackupOptions = () => {
 
     return (
         <div className="p-6 md:p-10 bg-gray-50 min-h-screen">
-            <h1 className="text-3xl font-bold text-[#6b0f14] mb-8">Backup Options</h1>
+
+            {/* Hero Section */}
+            <div className="relative rounded-2xl mb-8 overflow-hidden" style={{ background: 'linear-gradient(135deg, #6b0f14 0%, #8b1a20 60%, #a52828 100%)' }}>
+                <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 80% 50%, white 0%, transparent 60%)' }} />
+                <div className="relative px-8 py-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div>
+                        <div className="inline-flex items-center gap-2 bg-white/15 text-white text-xs font-semibold px-3 py-1 rounded-full mb-3 uppercase tracking-wider">
+                            <Settings2 size={12} />
+                            Data Management Console
+                        </div>
+                        <h1 className="text-2xl md:text-3xl font-bold text-white flex items-center gap-3 mb-1">
+                            <DatabaseBackup size={28} className="opacity-90" />
+                            Backup Options
+                        </h1>
+                        <p className="text-white/70 text-sm max-w-xl">
+                            Schedule automatic backups, download full database snapshots, and restore data from JSON or ZIP archives.
+                        </p>
+                    </div>
+
+                </div>
+            </div>
 
             <div className="max-w-3xl mx-auto bg-white rounded-3xl shadow-xl p-8 md:p-10">
                 {loading ? (
@@ -317,7 +338,7 @@ const BackupOptions = () => {
                             />
                         </div>
 
-                        <div className="mt-6 pt-6 border-t border-gray-200">
+                        <div id="restore-section" className="mt-6 pt-6 border-t border-gray-200">
                             <h2 className="text-lg font-semibold text-gray-800 mb-4">Restore Backup</h2>
                             <p className="text-sm text-gray-600 mb-4">
                                 Import a JSON file for a single collection, or upload a ZIP to restore multiple collections at once.

@@ -6,6 +6,7 @@ import { API_BASE_URL } from '../../utils/api';
 import DashSide from './DashSide';
 import DashNav from './DashNav';
 import DashFooter from './DashFooter';
+import ErrorBoundary from '../Errors/ErrorBoundary';
 
 const Dashboard = () => {
     const navigate = useNavigate();
@@ -113,16 +114,19 @@ const Dashboard = () => {
                 )}
 
                 {/* Main Content */}
-                <main className="flex-1 xl:ml-[260px] min-h-screen flex flex-col">
+                <main className="flex-1 xl:ml-[260px] min-h-screen flex flex-col min-w-0 max-w-full overflow-x-hidden">
 
                     {/* Header */}
                     <header className="sticky top-0 z-40 bg-white shadow-md">
                         <DashNav user={user} />
                     </header>
 
-                    {/* Page Content */}
-                    <section className="flex-grow p-6 bg-gray-50 overflow-auto">
-                        <Outlet />
+                    {/* Page Content — wrapped in ErrorBoundary so render crashes
+                         show a fallback card instead of a blank white screen */}
+                    <section className="flex-1 w-full overflow-y-auto bg-gray-50 p-4 sm:p-6 min-w-0 max-w-full">
+                        <ErrorBoundary>
+                            <Outlet />
+                        </ErrorBoundary>
                     </section>
 
                     {/* Footer */}

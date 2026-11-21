@@ -4,21 +4,26 @@ const Student = require('./model/Student');
 const Warden = require('./model/Warden');
 const Allocation = require('./model/Allocation');
 const User = require('./model/User');
+const Hostel = require('./model/Hostel');
+const Room = require('./model/Room');
 require('dotenv').config();
 
 async function fullDiagnosis() {
     try {
+        console.time('Full Diagnosis Total');
+        console.time('Connect to DB');
         await mongoose.connect(process.env.MONGODB_URI || process.env.MONGO_URI);
+        console.timeEnd('Connect to DB');
         console.log('\n' + '='.repeat(60));
         console.log('📊 COMPLETE DATABASE DIAGNOSIS');
         console.log('='.repeat(60) + '\n');
 
-        // 1. Users
-        const userCount = await User.countDocuments();
-        console.log(`👤 Users: ${userCount}`);
-        if (userCount > 0) {
-            const user = await User.findOne();
-            console.log(`   Sample: ${user.email || user.username}, ID: ${user._id}\n`);
+        console.log('\n' + '='.repeat(60));
+        console.log('📊 CHECKING INDEXES ON COLLECTIONS');
+        console.log('='.repeat(60) + '\n');
+        for (const colName of ['students', 'allocations', 'payments', 'rooms', 'hostels', 'users']) {
+            const indexes = await mongoose.connection.db.collection(colName).indexes();
+            console.log(`Collection "${colName}" indexes:`, indexes.map(idx => Object.keys(idx.key).join('_')));
         }
 
         // 2. Wardens
@@ -35,33 +40,54 @@ async function fullDiagnosis() {
         const studentCount = await Student.countDocuments();
         console.log(`🎓 Students: ${studentCount}`);
         if (studentCount > 0) {
-            const student = await Student.findOne();
-            console.log(`   ID: ${student._id}`);
-            console.log(`   Enrolment: ${student.enrolmentNo}`);
-            console.log(`   Name: ${student.fullName}\n`);
+            const rawStudent = await mongoose.connection.db.collection('students').findOne();
+            console.log(`   Raw student:`, JSON.stringify(rawStudent).slice(0, 200));
+            console.log(`   _id type in DB:`, typeof rawStudent._id, rawStudent._id.constructor.name);
+            const foundWithMongoose = await Student.findOne({ _id: rawStudent._id });
+            const foundWithStr = await mongoose.connection.db.collection('students').findOne({ _id: String(rawStudent._id) });
+            const foundWithObjId = mongoose.Types.ObjectId.isValid(rawStudent._id) ? await mongoose.connection.db.collection('students').findOne({ _id: new mongoose.Types.ObjectId(String(rawStudent._id)) }) : null;
+            console.log(`   Mongoose find: ${!!foundWithMongoose}, raw String find: ${!!foundWithStr}, raw ObjectId find: ${!!foundWithObjId}`);
         }
 
         // 4. Allocations
         const allocCount = await Allocation.countDocuments();
-        console.log(`🏠 Allocations: ${allocCount}`);
-        if (allocCount > 0) {
-            const alloc = await Allocation.findOne().populate('roomId').populate('hostelID').populate('studentId');
-            console.log(`   ID: ${alloc._id}`);
-            console.log(`   Hostel: ${alloc.hostelID?._id}`);
-            console.log(`   Student: ${alloc.studentId?._id}`);
-            console.log(`   Room: ${alloc.roomId?.roomID}\n`);
+        const activeTrueCount = await Allocation.countDocuments({ active: true });
+        const activeNotFalseCount = await Allocation.countDocuments({ active: { $ne: false } });
+        console.log(`🏠 Allocations: total=${allocCount}, active:true=${activeTrueCount}, active:neFalse=${activeNotFalseCount}`);
+        
+        const activeAllocs = await Allocation.find({ active: true }).limit(5).lean();
+        console.log(`   Sample 5 ACTIVE allocations:`);
+        for (const a of activeAllocs) {
+            console.log(`   Alloc ID: ${a._id}, regNo: ${a.regNo} (${typeof a.regNo}), studentId: ${a.studentId} (${typeof a.studentId}), hostelID: ${a.hostelID}`);
+            let stById = null;
+            if (a.studentId) {
+                stById = await Student.findById(a.studentId).lean();
+                if (!stById && typeof a.studentId === 'string') {
+                    stById = await Student.findOne({ enrolmentNo: a.studentId }).lean();
+                }
+            }
+            let stByReg = null;
+            if (a.regNo) {
+                stByReg = await Student.findOne({ enrolmentNo: a.regNo }).lean();
+                if (!stByReg && /^[0-9a-fA-F]{24}$/.test(String(a.regNo))) {
+                    stByReg = await Student.findById(a.regNo).lean();
+                }
+            }
+            console.log(`      Found by studentId? ${stById ? `YES: ${stById.enrolmentNo} - ${stById.name}` : 'NO'}`);
+            console.log(`      Found by regNo? ${stByReg ? `YES: ${stByReg.enrolmentNo} - ${stByReg.name}` : 'NO'}`);
         }
+
+        const allHostels = await Hostel.find().lean();
+        console.log(`\n🏨 Hostels in DB (${allHostels.length}):`);
+        allHostels.forEach(h => console.log(`   ID: ${h._id}, Name: "${h.name}", Code: "${h.hostelID}"`));
 
         // 5. Payments
         const paymentCount = await Payment.countDocuments();
         console.log(`💰 Payments: ${paymentCount}`);
         if (paymentCount > 0) {
-            const payments = await Payment.find().limit(5).populate('studentId');
-            console.log(`   Sample Payments:`);
-            payments.forEach((p, i) => {
-                console.log(`   ${i + 1}. Amount: ${p.amount}, StudentID: ${p.studentId?._id}`);
-                console.log(`      Type: ${p.type}, Date: ${p.paidDate}`);
-            });
+            const rawPayment = await mongoose.connection.db.collection('payments').findOne();
+            console.log(`   Raw payment:`, JSON.stringify(rawPayment));
+            console.log(`   studentId type in payment:`, typeof rawPayment.studentId, rawPayment.studentId ? rawPayment.studentId.constructor.name : 'null');
         } else {
             console.log('   ❌ NO PAYMENTS FOUND!\n');
             console.log('   💡 To create test payments, run: node seed-payments.js\n');
@@ -106,6 +132,7 @@ async function fullDiagnosis() {
         }
 
         console.log('\n' + '='.repeat(60) + '\n');
+        console.timeEnd('Full Diagnosis Total');
 
         await mongoose.connection.close();
         process.exit(0);

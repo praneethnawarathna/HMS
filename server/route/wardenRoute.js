@@ -12,6 +12,9 @@ router.post('/approve-need/:id', authMiddleware, checkPermission('approve-needs'
 
 router.post('/reject-need/:id', authMiddleware, checkPermission('approve-needs'), WardenController.rejectneeds)
 
+router.post('/update-need-status/:id', authMiddleware, checkPermission('approve-needs'), WardenController.updateNeedStatus)
+router.put('/update-need-status/:id', authMiddleware, checkPermission('approve-needs'), WardenController.updateNeedStatus)
+
 router.get('/all-rooms', authMiddleware, checkPermission('rooms-for-students'), WardenController.getallwardenrooms)
 
 router.post('/assign-room-special', authMiddleware, checkPermission('assign-room-special'), WardenController.assignstdtorooms_via_sp)

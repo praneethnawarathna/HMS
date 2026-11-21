@@ -402,7 +402,7 @@ const AssignedStudents = () => {
                     <tbody className="divide-y divide-gray-100">
                         {filteredList.length > 0 ? (
                             filteredList.map((std) => {
-                                const studyYear = std.dateOfEnrolment ? `Year ${(new Date().getFullYear() - new Date(std.dateOfEnrolment).getFullYear()) + 1}` : ''
+                                const studyYear = std.studyYear || std.study_year || (std.dateOfEnrolment ? `Year ${(new Date().getFullYear() - new Date(std.dateOfEnrolment).getFullYear()) + 1}` : '1st Year')
 
                                 const normalizedSex = (std.sex || '').trim().toLowerCase();
                                 const rowId = std.allocationId || std._id;

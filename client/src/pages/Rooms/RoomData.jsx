@@ -2,30 +2,52 @@ import axios from 'axios'
 import React, { useEffect, useState } from 'react'
 import { FaBed } from 'react-icons/fa6'
 
-
 const RoomData = () => {
     const token = localStorage.getItem('login')
+    // Always initialise as an array so .length never throws
     const [roomdata, setroomdata] = useState([])
+    const [loading, setLoading] = useState(true)
+
     useEffect(() => {
+        setLoading(true)
         axios.get(import.meta.env.VITE_APP_API + '/room/get-all-rooms', {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
         })
             .then(res => {
-                setroomdata(res.data.Result)
+                // Guard: fall back to [] if Result is null / undefined
+                setroomdata(res.data?.Result ?? [])
             })
-            .catch(err => console.log(err))
+            .catch(err => {
+                console.error('RoomData fetch error:', err)
+                setroomdata([])  // keep state as a safe empty array on error
+            })
+            .finally(() => setLoading(false))
     }, [token])
+
+    // Early return — never attempt to render with uninitialised data
+    if (loading) {
+        return (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 my-6">
+                {[1].map(i => (
+                    <div key={i} className="relative bg-[#6b0f14]/30 p-6 rounded-2xl shadow-lg animate-pulse h-24" />
+                ))}
+            </div>
+        )
+    }
+
     const stddata = [
         {
             id: 1,
             name: 'Total Rooms',
             icon: FaBed,
-            value: roomdata.length,
+            // Optional chaining + nullish coalescing: safe even if roomdata is somehow falsy
+            value: roomdata?.length ?? 0,
             bgColor: 'bg-[#6b0f14]',
         },
     ]
+
     return (
         <div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 my-6">
@@ -49,7 +71,6 @@ const RoomData = () => {
                         )
                     })
                 }
-
             </div>
         </div>
     )

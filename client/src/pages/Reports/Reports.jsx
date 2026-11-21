@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
-import { FileSpreadsheet, Activity, Building, IndianRupee, Users, CreditCard } from 'lucide-react';
+import { FileSpreadsheet, Activity, Building, IndianRupee, Users, CreditCard, BarChart3, FileDown, Eye } from 'lucide-react';
 
 const DEPARTMENT_MAP = {
     A: 'Arts',
@@ -988,10 +988,32 @@ const Reports = () => {
 
     return (
         <>
-            <div className={`p-8 max-w-7xl mx-auto min-h-screen ${showPreviewModal ? 'print:hidden' : ''}`}>
-                <div className="mb-8">
-                    <h1 className="text-3xl font-bold text-gray-800 mb-2">System Reports</h1>
-                    <p className="text-gray-500">Generate and download comprehensive data exports for hostel management.</p>
+            <div className={`w-full min-h-screen ${showPreviewModal ? 'print:hidden' : ''}`}>
+
+                {/* Hero Section */}
+                <div className="relative rounded-2xl mb-8 overflow-hidden" style={{ background: 'linear-gradient(135deg, #6b0f14 0%, #8b1a20 60%, #a52828 100%)' }}>
+                    <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 80% 50%, white 0%, transparent 60%)' }} />
+                    <div className="relative px-8 py-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                        <div>
+                            <div className="inline-flex items-center gap-2 bg-white/15 text-white text-xs font-semibold px-3 py-1 rounded-full mb-3 uppercase tracking-wider">
+                                <BarChart3 size={12} />
+                                Analytics & Reporting Hub
+                            </div>
+                            <h1 className="text-2xl md:text-3xl font-bold text-white flex items-center gap-3 mb-1">
+                                <FileSpreadsheet size={28} className="opacity-90" />
+                                System Reports
+                            </h1>
+                            <p className="text-white/70 text-sm max-w-xl">
+                                Generate and download comprehensive data exports for hostel management, student allocations, and financial records.
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-3 flex-shrink-0">
+                            <div className="text-right text-white/80 text-sm">
+                                <div className="text-white font-bold text-xl">{reportOptions.length}</div>
+                                <div className="text-xs text-white/60 uppercase tracking-wider">Report Types</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

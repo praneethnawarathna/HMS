@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react'
 import axios from 'axios'
 import DefaultBtn from '../../components/Buttons/DefaultBtn'
 import { Link } from 'react-router-dom'
+import { getStudentHomeTown } from '../../utils/studentUtils'
 
 const StdAssignNormal = () => {
     const [students, setStudents] = useState([]) // expects [{ student, allocations }]
@@ -215,7 +216,7 @@ const StdAssignNormal = () => {
                                         
                                         <td className="px-6 py-4">{student.nic || '-'}</td>
                                         <td className="px-6 py-4">{student.sex || '-'}</td>
-                                        <td className="px-6 py-4">{student.address3 || '-'}</td>
+                                        <td className="px-6 py-4">{getStudentHomeTown(student)}</td>
                                         <td className="px-6 py-4">{student.distance || '-'}</td>
                                     </tr>
                                 )

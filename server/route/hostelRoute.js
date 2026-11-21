@@ -19,6 +19,9 @@ router.post('/update-hostel-gender/:id', authMiddleware, checkPermission('update
 
 router.post('/assign-new-warden', authMiddleware, checkPermission('assign-new-warden'), HostelController.assignNewWarden)
 
+router.put('/update-hostel/:id', authMiddleware, checkPermission('update-room-count'), HostelController.updateAllHostelDetails)
+router.post('/update-hostel/:id', authMiddleware, checkPermission('update-room-count'), HostelController.updateAllHostelDetails)
+
 router.post('/assign-students', authMiddleware, checkPermission('student-assign-hostel'), HostelController.assignStudents)
 
 router.delete('/delete-hostel/:id', authMiddleware, checkPermission('delete-hostel'), HostelController.deleteHostel)

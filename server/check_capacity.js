@@ -3,7 +3,9 @@ const Room = require('./model/Room');
 const Allocation = require('./model/Allocation');
 const Hostel = require('./model/Hostel');
 
-mongoose.connect('mongodb://localhost:27017/hmsfull', {}).then(async () => {
+require('dotenv').config();
+
+mongoose.connect(process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/NEW_HMS', {}).then(async () => {
     const rooms = await Room.find({});
     const hostelGroups = {};
     rooms.forEach(r => {

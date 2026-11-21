@@ -162,7 +162,7 @@ const UserController = {
 
             const updatedUser = await User.findByIdAndUpdate(
                 userID,
-                { $set: { roles: [roleID] } }, 
+                { $set: { roles: [roleID] } },
                 { new: true }
             );
 
@@ -233,7 +233,7 @@ const UserController = {
             // If user has warden records, remove them and clear hostel references
             await Hostel.updateMany({ warden: id }, { $unset: { warden: "" } });
             await Warden.deleteMany({ userId: id });
-            
+
             // If this user is a synthetic student account, clean up student data
             // Synthetic usernames correspond to enrolmentNo of the student.
             const student = await Student.findOne({ enrolmentNo: user.username });

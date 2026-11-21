@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import axios from 'axios'
-import { FaEdit, FaTrash, FaPlus } from 'react-icons/fa'
+import ActionButtons from '../../components/Buttons/ActionButtons'
 import DefaultInput from '../../components/Form/DefaultInput'
 import DefaultBtn from '../../components/Buttons/DefaultBtn'
 import Dropdown from '../../components/Form/Dropdown'
@@ -18,6 +18,20 @@ const WardenManage = () => {
         userId: '',
         hostelId: '',
         startDate: new Date().toISOString().split('T')[0],
+        active: true,
+        note: ''
+    })
+
+    // Edit warden modal state (edits all details: user & warden assignment)
+    const [showEditWardenModal, setShowEditWardenModal] = useState(false)
+    const [editingWarden, setEditingWarden] = useState({
+        _id: '',
+        userId: '',
+        username: '',
+        email: '',
+        password: '',
+        hostelId: '',
+        startDate: '',
         active: true,
         note: ''
     })
@@ -146,78 +160,196 @@ const WardenManage = () => {
         setError('')
     }
 
-    // Edit user details (username, email) - open form
-    const handleEditUser = (userId) => {
-        const user = users.find(u => u._id === userId)
-        if (!user) {
-            setError('User not found')
-            return
+    // Edit full warden details (user info & warden assignment)
+    const handleOpenEditWardenModal = (warden) => {
+        const rawHostelId = typeof warden.hostelId === 'object' ? (warden.hostelId?._id || '') : (warden.hostelId || '');
+        const rawUserId = typeof warden.userId === 'object' ? (warden.userId?._id || '') : (warden.userId || '');
+        setEditingWarden({
+            _id: warden._id,
+            userId: rawUserId,
+            username: warden.userId?.username || '',
+            email: warden.userId?.email || '',
+            password: '',
+            hostelId: rawHostelId,
+            startDate: warden.startDate ? new Date(warden.startDate).toISOString().split('T')[0] : '',
+            active: warden.active !== undefined ? warden.active : true,
+            note: warden.note || ''
+        });
+        setShowEditWardenModal(true);
+        setError('');
+        setSuccess('');
+    };
+
+    const submitEditWarden = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        setError('');
+        setSuccess('');
+        try {
+            // 1. Update user details (username, email, password)
+            if (editingWarden.userId) {
+                const userPayload = {
+                    id: editingWarden.userId,
+                    username: editingWarden.username,
+                    email: editingWarden.email
+                };
+                if (editingWarden.password && editingWarden.password.trim()) {
+                    userPayload.password = editingWarden.password.trim();
+                }
+                await axios.post(
+                    `${import.meta.env.VITE_APP_API}/user/update-user-body`,
+                    userPayload,
+                    { headers: { Authorization: `Bearer ${token}` } }
+                );
+            }
+
+            // 2. Update warden assignment
+            const res = await axios.post(
+                `${import.meta.env.VITE_APP_API}/warden/update-warden/${editingWarden._id}`,
+                {
+                    hostelId: editingWarden.hostelId,
+                    startDate: editingWarden.startDate,
+                    active: editingWarden.active,
+                    note: editingWarden.note
+                },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+
+            if (res.data.Status === 'Success') {
+                setSuccess('Warden updated successfully');
+                setShowEditWardenModal(false);
+                fetchWardens();
+                fetchUsers();
+            } else {
+                setError(res.data.Error || 'Failed to update warden');
+            }
+        } catch (err) {
+            console.error('Error updating warden:', err);
+            setError(err.response?.data?.Error || 'Failed to update warden');
+        } finally {
+            setLoading(false);
         }
-        setEditingUser({ _id: user._id, username: user.username || '', email: user.email || '' })
-        setShowEditUserForm(true)
-    }
+    };
+
+    const cancelEditWarden = () => {
+        setShowEditWardenModal(false);
+        setEditingWarden({
+            _id: '',
+            userId: '',
+            username: '',
+            email: '',
+            password: '',
+            hostelId: '',
+            startDate: '',
+            active: true,
+            note: ''
+        });
+        setError('');
+    };
+
+    const handleDeleteWarden = async (wardenId) => {
+        if (!window.confirm('Delete this warden assignment? This will remove the hostel assignment.')) return;
+        try {
+            setLoading(true);
+            const res = await axios.post(
+                `${import.meta.env.VITE_APP_API}/warden/delete-warden/${wardenId}`,
+                {},
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            if (res.data.Status === 'Success') {
+                setSuccess('Warden assignment removed successfully');
+                fetchWardens();
+                fetchUsers();
+            } else {
+                setError(res.data.Error || 'Failed to remove warden');
+            }
+        } catch (err) {
+            console.error('Error deleting warden:', err);
+            setError('Failed to remove warden');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Edit user details (username, email, password) for unassigned wardens
+    const [showEditUserForm, setShowEditUserForm] = useState(false);
+    const [editingUser, setEditingUser] = useState({ _id: '', username: '', email: '', password: '' });
+
+    const handleEditUser = (userId) => {
+        const user = users.find(u => u._id === userId);
+        if (!user) {
+            setError('User not found');
+            return;
+        }
+        setEditingUser({ _id: user._id, username: user.username || '', email: user.email || '', password: '' });
+        setShowEditUserForm(true);
+    };
 
     const submitEditUser = async (e) => {
-        e.preventDefault()
-        setLoading(true)
-        setError('')
-        setSuccess('')
-            try {
+        e.preventDefault();
+        setLoading(true);
+        setError('');
+        setSuccess('');
+        try {
+            const userPayload = {
+                id: editingUser._id,
+                username: editingUser.username,
+                email: editingUser.email
+            };
+            if (editingUser.password && editingUser.password.trim()) {
+                userPayload.password = editingUser.password.trim();
+            }
             await axios.post(
                 `${import.meta.env.VITE_APP_API}/user/update-user-body`,
-                { id: editingUser._id, username: editingUser.username, email: editingUser.email },
+                userPayload,
                 { headers: { Authorization: `Bearer ${token}` } }
-            )
-            setSuccess('User updated')
-            setShowEditUserForm(false)
-            setEditingUser({ _id: '', username: '', email: '' })
-            fetchUsers()
-            fetchWardens()
+            );
+            setSuccess('User updated successfully');
+            setShowEditUserForm(false);
+            setEditingUser({ _id: '', username: '', email: '', password: '' });
+            fetchUsers();
+            fetchWardens();
         } catch (err) {
-            console.error('Error updating user:', err)
-            setError('Failed to update user')
+            console.error('Error updating user:', err);
+            setError('Failed to update user');
         } finally {
-            setLoading(false)
+            setLoading(false);
         }
-    }
+    };
 
     const cancelEditUser = () => {
-        setShowEditUserForm(false)
-        setEditingUser({ _id: '', username: '', email: '' })
-        setError('')
-    }
+        setShowEditUserForm(false);
+        setEditingUser({ _id: '', username: '', email: '', password: '' });
+        setError('');
+    };
 
     const handleDeleteUser = async (userId) => {
-        if (!window.confirm('Delete this user? This will also remove any warden record.')) return
+        if (!window.confirm('Delete this user? This will also remove any warden record.')) return;
         try {
-            setLoading(true)
+            setLoading(true);
             const res = await axios.post(
                 `${import.meta.env.VITE_APP_API}/user/delete-user/${userId}`,
                 {},
                 { headers: { Authorization: `Bearer ${token}` } }
-            )
+            );
             if (res.data.Status === 'Success') {
-                setSuccess('User deleted')
-                fetchUsers()
-                fetchWardens()
+                setSuccess('User deleted');
+                fetchUsers();
+                fetchWardens();
             } else {
-                setError(res.data.Error || 'Failed to delete user')
+                setError(res.data.Error || 'Failed to delete user');
             }
         } catch (err) {
-            console.error('Error deleting user:', err)
-            setError('Failed to delete user')
+            console.error('Error deleting user:', err);
+            setError('Failed to delete user');
         } finally {
-            setLoading(false)
+            setLoading(false);
         }
-    }
-
-    
+    };
 
     // Create new user (signup) and refresh users
-    const [showCreateUser, setShowCreateUser] = useState(false)
-    const [newUserData, setNewUserData] = useState({ username: '', email: '', password: '' })
-    const [showEditUserForm, setShowEditUserForm] = useState(false)
-    const [editingUser, setEditingUser] = useState({ _id: '', username: '', email: '' })
+    const [showCreateUser, setShowCreateUser] = useState(false);
+    const [newUserData, setNewUserData] = useState({ username: '', email: '', password: '' });
 
     const handleCreateUser = async (e) => {
         e.preventDefault()
@@ -457,21 +589,15 @@ const WardenManage = () => {
                                             {warden.active ? 'Active' : 'Inactive'}
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4 flex gap-3">
-                                        {/* Edit button removed per request */}
-                                        <button
-                                            onClick={() => handleEditUser(warden.userId?._id)}
-                                            className="text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-1"
-                                        >
-                                            Edit User
-                                        </button>
-                                        <button
-                                            onClick={() => handleDeleteUser(warden.userId?._id)}
-                                            className="text-red-600 hover:text-red-800 font-semibold flex items-center gap-1"
-                                        >
-                                            Delete User
-                                        </button>
-                                        {/* Unassign button removed */}
+                                    <td className="px-6 py-4">
+                                        <ActionButtons
+                                            onEdit={() => handleOpenEditWardenModal(warden)}
+                                            onDelete={() => handleDeleteWarden(warden._id)}
+                                            editTitle="Edit warden details"
+                                            deleteTitle="Remove warden assignment"
+                                            showLabels={false}
+                                            size="sm"
+                                        />
                                     </td>
                                 </tr>
                             ))
@@ -507,20 +633,14 @@ const WardenManage = () => {
                                         <td className="px-6 py-3">{u.username}</td>
                                         <td className="px-6 py-3">{u.email}</td>
                                         <td className="px-6 py-3">
-                                            <button
-                                                onClick={() => handleEditUser(u._id)}
-                                                className="text-indigo-600 hover:text-indigo-800 font-semibold mr-3"
-                                            >
-                                                Edit User
-                                            </button>
-                                            {/* Assign button removed */}
-                                                {/* Unassign removed */}
-                                                <button
-                                                    onClick={() => handleDeleteUser(u._id)}
-                                                    className="text-red-600 hover:text-red-800 font-semibold"
-                                                >
-                                                    Delete User
-                                                </button>
+                                            <ActionButtons
+                                                onEdit={() => handleEditUser(u._id)}
+                                                onDelete={() => handleDeleteUser(u._id)}
+                                                editTitle="Edit user details"
+                                                deleteTitle="Delete user"
+                                                showLabels={false}
+                                                size="sm"
+                                            />
                                         </td>
                                     </tr>
                                 ))}
@@ -529,14 +649,90 @@ const WardenManage = () => {
                     </div>
                 </div>
             )}
-            {/* Edit User Form (inline modal) */}
+
+            {/* Edit Full Warden Details Modal */}
+            {showEditWardenModal && (
+                <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
+                    <div className="bg-white p-6 rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
+                        <h3 className="text-lg font-semibold text-[#6b0f14] mb-4">Edit Warden Details</h3>
+                        <form onSubmit={submitEditWarden} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <DefaultInput
+                                label="Username"
+                                type="text"
+                                value={editingWarden.username}
+                                onChange={(e) => setEditingWarden(prev => ({ ...prev, username: e.target.value }))}
+                                required
+                            />
+                            <DefaultInput
+                                label="Email"
+                                type="email"
+                                value={editingWarden.email}
+                                onChange={(e) => setEditingWarden(prev => ({ ...prev, email: e.target.value }))}
+                                required
+                            />
+                            <div className="sm:col-span-2">
+                                <DefaultInput
+                                    label="Password (optional)"
+                                    type="password"
+                                    placeholder="Leave blank to keep unchanged"
+                                    value={editingWarden.password}
+                                    onChange={(e) => setEditingWarden(prev => ({ ...prev, password: e.target.value }))}
+                                />
+                            </div>
+                            <div className="sm:col-span-2">
+                                <Dropdown
+                                    label="Assigned Hostel"
+                                    name="hostelId"
+                                    value={editingWarden.hostelId}
+                                    onChange={(e) => setEditingWarden(prev => ({ ...prev, hostelId: e.target.value }))}
+                                    options={hostelOptions}
+                                />
+                            </div>
+                            <DefaultInput
+                                label="Start Date"
+                                type="date"
+                                value={editingWarden.startDate}
+                                onChange={(e) => setEditingWarden(prev => ({ ...prev, startDate: e.target.value }))}
+                            />
+                            <div className="flex items-center gap-2 pt-6">
+                                <input
+                                    type="checkbox"
+                                    id="warden-active-toggle"
+                                    checked={editingWarden.active}
+                                    onChange={(e) => setEditingWarden(prev => ({ ...prev, active: e.target.checked }))}
+                                    className="w-4 h-4 accent-[#6b0f14]"
+                                />
+                                <label htmlFor="warden-active-toggle" className="font-medium text-sm text-gray-700 cursor-pointer">
+                                    Active Status
+                                </label>
+                            </div>
+                            <div className="sm:col-span-2">
+                                <DefaultInput
+                                    label="Notes"
+                                    type="text"
+                                    placeholder="Optional notes"
+                                    value={editingWarden.note}
+                                    onChange={(e) => setEditingWarden(prev => ({ ...prev, note: e.target.value }))}
+                                />
+                            </div>
+                            <div className="sm:col-span-2 flex gap-3 justify-end mt-2">
+                                <DefaultBtn type="button" label="Cancel" onClick={cancelEditWarden} className="bg-gray-500" />
+                                <DefaultBtn type="submit" label={loading ? 'Saving...' : 'Save Changes'} disabled={loading} />
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Edit User Form (for available unassigned wardens) */}
             {showEditUserForm && (
                 <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
-                    <div className="bg-white p-6 rounded-2xl w-full max-w-md">
+                    <div className="bg-white p-6 rounded-2xl w-full max-w-md shadow-2xl">
                         <h3 className="text-lg font-semibold text-[#6b0f14] mb-4">Edit User</h3>
                         <form onSubmit={submitEditUser} className="grid grid-cols-1 gap-3">
-                            <DefaultInput label="Username" type="text" value={editingUser.username} onChange={(e)=>setEditingUser(prev=>({...prev, username: e.target.value}))} />
-                            <DefaultInput label="Email" type="email" value={editingUser.email} onChange={(e)=>setEditingUser(prev=>({...prev, email: e.target.value}))} />
+                            <DefaultInput label="Username" type="text" value={editingUser.username} onChange={(e)=>setEditingUser(prev=>({...prev, username: e.target.value}))} required />
+                            <DefaultInput label="Email" type="email" value={editingUser.email} onChange={(e)=>setEditingUser(prev=>({...prev, email: e.target.value}))} required />
+                            <DefaultInput label="Password (optional)" type="password" placeholder="Leave blank to keep unchanged" value={editingUser.password} onChange={(e)=>setEditingUser(prev=>({...prev, password: e.target.value}))} />
                             <div className="flex gap-3 justify-end mt-2">
                                 <DefaultBtn type="button" label="Cancel" onClick={cancelEditUser} className="bg-gray-500" />
                                 <DefaultBtn type="submit" label={loading ? 'Saving...' : 'Save'} disabled={loading} />

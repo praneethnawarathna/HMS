@@ -73,11 +73,26 @@ const EligibilityController = {
 
     // ─── Hostel Assignment Page ───
     // Returns eligible students with their current allocation state.
+    // If includeAll=true is passed or no students are explicitly marked eligible,
+    // returns all unassigned/available students so admin can assign them.
     getEligibleForAssignment: async (req, res) => {
         try {
-            const students = await Student.find({
-                eligibilityStatus: { $in: ['Eligible', 'Assigned', true] }
-            }).lean();
+            const { includeAll } = req.query;
+            let query = {};
+            if (includeAll === 'true') {
+                query = {};
+            } else {
+                const explicitEligibleCount = await Student.countDocuments({
+                    eligibilityStatus: { $in: ['Eligible', 'Assigned', true] }
+                });
+                if (explicitEligibleCount > 0) {
+                    query = { eligibilityStatus: { $in: ['Eligible', 'Assigned', true] } };
+                } else {
+                    query = {};
+                }
+            }
+
+            const students = await Student.find(query).lean();
 
             const activeAllocations = await Allocation.find({
                 studentId: { $in: students.map(student => student._id) },
@@ -182,10 +197,19 @@ const EligibilityController = {
                     }
                 }
                 
-                // If student doesn't exist, this is an orphaned allocation
+                // If student record not found, still provide fallback info from allocation
                 if (!s || Object.keys(s).length === 0) {
-                    orphanedAllocationIds.push(alloc._id);
-                    return null;
+                    return {
+                        _id: alloc.studentId || alloc._id,
+                        allocationId: alloc._id,
+                        enrolmentNo: alloc.regNo || 'Unknown',
+                        name: 'Unknown Student',
+                        hostelName: alloc.hostelID?.name || null,
+                        hostelCode: alloc.hostelID?.hostelID || null,
+                        roomNumber: alloc.roomId?.roomID || null,
+                        assignmentDate: alloc.inDate || null,
+                        allocationActive: alloc.active || false,
+                    };
                 }
                 
                 return {
@@ -200,14 +224,7 @@ const EligibilityController = {
                     assignmentDate: alloc.inDate || s.hostelAssignedDate || null,
                     allocationActive: alloc.active || false,
                 };
-            }).filter(Boolean); // Remove the nulls (orphaned ones)
-
-            // Background cleanup of orphaned allocations
-            if (orphanedAllocationIds.length > 0) {
-                Allocation.deleteMany({ _id: { $in: orphanedAllocationIds } })
-                    .then(result => console.log(`Cleaned up ${result.deletedCount} orphaned allocations`))
-                    .catch(err => console.error("Failed to clean orphaned allocations:", err));
-            }
+            }).filter(Boolean);
 
             // Ensure unique students in case of duplicate active allocations
             const uniqueStudents = [];

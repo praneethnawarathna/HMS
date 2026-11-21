@@ -1,6 +1,10 @@
 const mongoose = require('mongoose');
 
 const roleSchema = new mongoose.Schema({
+    _id: {
+        type: String,
+        default: () => new mongoose.Types.ObjectId().toString()
+    },
     name: {
         type: String,
         required: true,

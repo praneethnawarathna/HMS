@@ -8,7 +8,7 @@ const Student = require("../model/Student")
 const { jwtDecode } = require('jwt-decode');
 const bcrypt = require('bcrypt');
 const mongoose = require('mongoose');
-const { getActiveWardenAssignments, getActiveWardenHostelIds } = require('../utils/wardenAssignments');
+const { getActiveWardenAssignments, getActiveWardenHostelIds, buildDualIdFilter, toIdVariants } = require('../utils/wardenAssignments');
 
 const objectIdPattern = /^[0-9a-fA-F]{24}$/;
 
@@ -36,6 +36,41 @@ function normalizeHostel(hostel) {
     };
 }
 
+
+function getCompatibleHostelFilter(id) {
+    const normalizedId = String(id || '').trim();
+    if (!normalizedId) return null;
+
+    const candidates = [normalizedId];
+    if (mongoose.Types.ObjectId.isValid(normalizedId)) {
+        candidates.unshift(new mongoose.Types.ObjectId(normalizedId));
+    }
+
+    return {
+        _id: candidates.length === 1
+            ? candidates[0]
+            : { $in: candidates }
+    };
+}
+
+async function findHostelByIdCompatible(id) {
+    const normalizedId = String(id || '').trim();
+    if (!normalizedId) return null;
+
+    try {
+        const found = await Hostel.findById(normalizedId);
+        if (found) return found;
+    } catch (e) {}
+
+    const filter = getCompatibleHostelFilter(normalizedId);
+    if (filter) {
+        const rawDoc = await Hostel.collection.findOne(filter);
+        if (rawDoc) {
+            return Hostel.hydrate(rawDoc);
+        }
+    }
+    return null;
+}
 
 const HostelController = {
     GetallWarden: async (req, res) => {
@@ -192,12 +227,23 @@ const HostelController = {
         try {
             const { id } = req.params
 
-            const gethostel = await Hostel.findById(id).populate('warden')
+            const gethostel = await findHostelByIdCompatible(id)
+
+            if (!gethostel) {
+                return res.status(404).json({ Error: 'Hostel not found' })
+            }
+
+            try {
+                await gethostel.populate('warden', 'username email profileImage active')
+            } catch (popErr) {
+                console.warn('Warden populate warning:', popErr.message)
+            }
 
             return res.json({ Result: gethostel })
         }
         catch (err) {
-            console.log(err)
+            console.error('Error fetching hostel:', err)
+            return res.status(500).json({ Error: 'Server error fetching hostel' })
         }
     },
 
@@ -206,7 +252,7 @@ const HostelController = {
             const { id } = req.params;
             const { newRoomCount } = req.body;
 
-            const hostel = await Hostel.findById(id);
+            const hostel = await findHostelByIdCompatible(id);
             if (!hostel) {
                 return res.json({ error: 'Hostel not found' });
             }
@@ -264,7 +310,7 @@ const HostelController = {
                 return res.json({ error: 'Invalid hostel gender' });
             }
 
-            const hostel = await Hostel.findById(id);
+            const hostel = await findHostelByIdCompatible(id);
             if (!hostel) {
                 return res.json({ error: 'Hostel not found' });
             }
@@ -307,7 +353,10 @@ const HostelController = {
             const savedWarden = await newWarden.save();
 
             // Update Hostel document with new warden reference
-            await Hostel.findByIdAndUpdate(hostelId, { warden: newWardenId });
+            const hostelFilter = getCompatibleHostelFilter(hostelId);
+            if (hostelFilter) {
+                await Hostel.collection.updateOne(hostelFilter, { $set: { warden: newWardenId } });
+            }
 
             return res.json({
                 Status: "Success",
@@ -320,25 +369,169 @@ const HostelController = {
         }
     },
 
+    updateAllHostelDetails: async (req, res) => {
+        try {
+            const { id } = req.params;
+            const {
+                hostelID,
+                name,
+                location,
+                gender,
+                roomCount,
+                warden
+            } = req.body;
+
+            const hostel = await findHostelByIdCompatible(id);
+            if (!hostel) {
+                return res.status(404).json({ Error: "Hostel not found" });
+            }
+
+            // Check if hostelID or name is taken by another hostel
+            if (hostelID || name) {
+                const existing = await Hostel.findOne({
+                    _id: { $ne: hostel._id },
+                    $or: [
+                        ...(hostelID ? [{ hostelID: hostelID.trim() }] : []),
+                        ...(name ? [{ name: name.trim() }] : [])
+                    ]
+                });
+                if (existing) {
+                    if (existing.hostelID === hostelID?.trim()) {
+                        return res.json({ Error: "Hostel ID is already taken by another hostel" });
+                    }
+                    if (existing.name === name?.trim()) {
+                        return res.json({ Error: "Hostel name is already taken by another hostel" });
+                    }
+                }
+            }
+
+            const oldHostelID = hostel.hostelID;
+            const oldGender = hostel.gender;
+            const currentRoomCount = hostel.roomCount || 0;
+            const oldWarden = hostel.warden ? String(hostel.warden) : '';
+
+            if (hostelID) hostel.hostelID = hostelID.trim();
+            if (name) hostel.name = name.trim();
+            if (location !== undefined) hostel.location = location;
+
+            // Handle gender update
+            if (gender && ['Male', 'Female', 'REV'].includes(gender)) {
+                hostel.gender = gender;
+                if (gender !== oldGender) {
+                    await Room.updateMany(
+                        { hostelID: hostel._id },
+                        { $set: { gender } }
+                    );
+                }
+            }
+
+            // Handle room count update
+            const parsedRoomCount = parseInt(roomCount);
+            if (!isNaN(parsedRoomCount) && parsedRoomCount > 0 && parsedRoomCount !== currentRoomCount) {
+                if (parsedRoomCount > currentRoomCount) {
+                    const roomsToAdd = [];
+                    for (let i = currentRoomCount + 1; i <= parsedRoomCount; i++) {
+                        roomsToAdd.push({
+                            roomID: `${hostel.hostelID || oldHostelID}/${i}`,
+                            currentOccupants: 0,
+                            capasity: 4,
+                            students: [],
+                            gender: hostel.gender,
+                            hostelID: hostel._id,
+                            status: 'Availabe'
+                        });
+                    }
+                    if (roomsToAdd.length > 0) {
+                        await Room.insertMany(roomsToAdd);
+                    }
+                } else if (parsedRoomCount < currentRoomCount) {
+                    // Only delete unoccupied rooms
+                    const roomsToRemove = await Room.find({
+                        hostelID: hostel._id,
+                        currentOccupants: { $lte: 0 }
+                    }).sort({ roomID: -1 }).limit(currentRoomCount - parsedRoomCount);
+
+                    if (roomsToRemove.length > 0) {
+                        const roomIDsToDelete = roomsToRemove.map(r => r._id);
+                        await Room.deleteMany({ _id: { $in: roomIDsToDelete } });
+                    }
+                }
+                hostel.roomCount = parsedRoomCount;
+            }
+
+            // Handle warden update
+            if (warden !== undefined) {
+                const newWardenStr = warden ? String(warden) : '';
+                if (newWardenStr !== oldWarden) {
+                    // Remove existing active wardens for this hostel
+                    await Warden.deleteMany({ hostelId: hostel._id, active: true });
+
+                    if (newWardenStr) {
+                        const newWardenAssignment = new Warden({
+                            userId: newWardenStr,
+                            hostelId: hostel._id,
+                            startDate: new Date(),
+                            note: "Reassigned via edit hostel",
+                            active: true
+                        });
+                        await newWardenAssignment.save();
+                        hostel.warden = newWardenStr;
+                    } else {
+                        hostel.warden = null;
+                    }
+                }
+            }
+
+            await hostel.save();
+
+            // Direct collection update to guarantee persistence across BSON ID types
+            const hostelFilter = getCompatibleHostelFilter(hostel._id || id);
+            if (hostelFilter) {
+                await Hostel.collection.updateOne(hostelFilter, {
+                    $set: {
+                        hostelID: hostel.hostelID,
+                        name: hostel.name,
+                        location: hostel.location,
+                        gender: hostel.gender,
+                        roomCount: hostel.roomCount,
+                        warden: hostel.warden
+                    }
+                });
+            }
+
+            // Fetch the updated hostel with populated warden
+            const updatedHostel = await findHostelByIdCompatible(hostel._id || id);
+            if (updatedHostel) {
+                try {
+                    await updatedHostel.populate('warden', 'username email profileImage active');
+                } catch (e) {}
+            }
+
+            return res.json({
+                Status: "Success",
+                Message: "Hostel details updated successfully",
+                Result: updatedHostel || hostel
+            });
+        } catch (err) {
+            console.error("Error updating all hostel details:", err);
+            return res.status(500).json({ Error: "Server error while updating hostel details" });
+        }
+    },
+
     assignStudents: async (req, res) => {
         try {
             const { hostelId, studentIds } = req.body;
 
-            const hostel = await Hostel.findById(hostelId);
+            const hostel = await findHostelByIdCompatible(hostelId);
             if (!hostel) {
                 return res.json({ Status: "Error", Message: "Hostel not found" });
             }
 
-            // Fetch students before proceeding
-            const students = await Student.find({ _id: { $in: studentIds } });
+            // Fetch students before proceeding (supporting String & ObjectId)
+            const students = await Student.find(buildDualIdFilter('_id', studentIds));
 
-            // Eligibility is stored on Student; current assignment is determined by active allocations.
-            const ineligibleStudent = students.find(s => s.eligibilityStatus !== 'Eligible' && s.eligibilityStatus !== 'Assigned' && s.eligibilityStatus !== true);
-            if (ineligibleStudent) {
-                return res.json({
-                    Status: "Error",
-                    Message: `Student ${ineligibleStudent.name || ineligibleStudent.enrolmentNo || 'Unknown'} is not eligible for hostel assignment.`
-                });
+            if (!students.length) {
+                return res.json({ Status: "Error", Message: "No valid students selected for assignment." });
             }
 
             // Check gender match
@@ -349,22 +542,22 @@ const HostelController = {
             if (mismatch) {
                 return res.json({
                     Status: "Error",
-                    Message: `Gender mismatch: Student ${mismatch.fullName || mismatch.nic || 'Unknown'} (${mismatch.sex}) does not match hostel gender (${hostel.gender})`
+                    Message: `Gender mismatch: Student ${mismatch.fullName || mismatch.name || mismatch.enrolmentNo || mismatch.nic || 'Unknown'} (${mismatch.sex}) does not match hostel gender (${hostel.gender})`
                 });
             }
 
             // Calculate actual capacity from rooms
-            const rooms = await Room.find({ hostelID: hostelId });
+            const rooms = await Room.find(buildDualIdFilter('hostelID', hostelId));
             const totalCapacity = rooms.reduce((sum, room) => sum + (room.capasity || 4), 0);
 
             const currentAllocations = await Allocation.find({
-                studentId: { $in: studentIds },
+                ...buildDualIdFilter('studentId', studentIds),
                 active: true
             });
             const currentAllocationIds = currentAllocations.map(allocation => allocation._id);
 
             const existingAllocations = await Allocation.find({
-                hostelID: hostelId,
+                ...buildDualIdFilter('hostelID', hostelId),
                 active: true,
                 _id: { $nin: currentAllocationIds }
             });
@@ -386,26 +579,53 @@ const HostelController = {
             if (currentAllocationIds.length > 0) {
                 await Allocation.updateMany(
                     { _id: { $in: currentAllocationIds } },
-                    { $set: { active: false, outDate: new Date(), note: 'Reassigned to another hostel' } }
+                    { $set: { active: false, outDate: new Date(), status: 'Completed', note: 'Reassigned to another hostel' } }
                 );
             }
 
-            const allocations = uniqueStudentIds.map(studentId => ({
-                regNo: studentId,
-                studentId: studentId,
-                hostelID: hostelId,
-                academicYear: new Date().getFullYear().toString(),
-                inDate: new Date(),
-                active: true,
-            }));
+            const studentMap = new Map(students.map(s => [s._id.toString(), s]));
+            const allocations = uniqueStudentIds.map(sid => {
+                const std = studentMap.get(sid);
+                return {
+                    regNo: std?.enrolmentNo || sid,
+                    studentId: std?._id || sid,
+                    hostelID: hostel._id || hostelId,
+                    academicYear: new Date().getFullYear().toString(),
+                    studyYear: std?.studyYear || '1st Year',
+                    status: 'Assigned',
+                    inDate: new Date(),
+                    active: true,
+                };
+            });
 
             await Allocation.insertMany(allocations);
 
-            // Mark students as assigned
-            await Student.updateMany(
-                { _id: { $in: studentIds } },
-                { $set: { isAssign: true, hostelAssignedDate: new Date(), eligibilityStatus: 'Assigned' } }
-            );
+            // Sync multi-year history on Student records and mark as assigned
+            for (const std of students) {
+                const yr = std.studyYear || '1st Year';
+                std.isAssign = true;
+                std.hostelAssignedDate = new Date();
+                std.eligibilityStatus = 'Assigned';
+                std.hostelAllocations = std.hostelAllocations || [];
+
+                const existingIdx = std.hostelAllocations.findIndex(ha => ha.studyYear === yr);
+                if (existingIdx >= 0) {
+                    std.hostelAllocations[existingIdx].hostelId = hostel._id || hostelId;
+                    std.hostelAllocations[existingIdx].hostelName = hostel.name;
+                    std.hostelAllocations[existingIdx].status = 'Assigned';
+                    std.hostelAllocations[existingIdx].assignedDate = new Date();
+                } else {
+                    std.hostelAllocations.push({
+                        studyYear: yr,
+                        academicYear: new Date().getFullYear().toString(),
+                        hostelId: hostel._id || hostelId,
+                        hostelName: hostel.name,
+                        status: 'Assigned',
+                        assignedDate: new Date()
+                    });
+                }
+                await std.save();
+            }
 
             // Get role document for 'student'
             const studentRole = await Role.findOne({ name: 'student' });
@@ -460,10 +680,11 @@ const HostelController = {
 
             const hostels = assignments.map(assignment => normalizeHostel(assignment.hostelId)).filter(Boolean);
 
-            const allocations = await Allocation.find({
-                hostelID: { $in: hostelIds },
-                active: true,
-            })
+            // Fetch ALL allocations for the warden's hostel(s) — matching both String and ObjectId representations
+            const allocations = await Allocation.find(
+                buildDualIdFilter('hostelID', hostelIds)
+            )
+                .sort({ inDate: -1, _id: -1 })  // most recent first so dedup picks the latest
                 .populate('roomId')
                 .populate('hostelID', 'hostelID name gender');
 
@@ -489,12 +710,17 @@ const HostelController = {
                 }
             });
 
-            const students = await Student.find({
-                $or: [
-                    { _id: { $in: Array.from(objectIds) } },
-                    { enrolmentNo: { $in: Array.from(enrolmentNos) } }
-                ]
-            });
+            const studentQueries = [];
+            if (objectIds.size > 0) {
+                studentQueries.push(buildDualIdFilter('_id', Array.from(objectIds)));
+            }
+            if (enrolmentNos.size > 0) {
+                studentQueries.push({ enrolmentNo: { $in: Array.from(enrolmentNos) } });
+            }
+
+            const students = studentQueries.length > 0
+                ? await Student.find(studentQueries.length === 1 ? studentQueries[0] : { $or: studentQueries })
+                : [];
 
             const studentsById = new Map();
             const studentsByEnrolment = new Map();
@@ -576,7 +802,7 @@ const HostelController = {
     deleteHostel: async (req, res) => {
         try {
             const { id } = req.params;
-            const hostel = await Hostel.findById(id);
+            const hostel = await findHostelByIdCompatible(id);
             if (!hostel) return res.status(404).json({ error: 'Hostel not found' });
             // Remove allocations linked to this hostel
             await Allocation.deleteMany({ hostelID: hostel._id });
@@ -585,7 +811,12 @@ const HostelController = {
             // Remove warden assignments for this hostel
             await Warden.deleteMany({ hostelId: hostel._id });
             // Finally delete the hostel record
-            await Hostel.findByIdAndDelete(hostel._id);
+            const delFilter = getCompatibleHostelFilter(hostel._id || id);
+            if (delFilter) {
+                await Hostel.collection.deleteOne(delFilter);
+            } else {
+                await Hostel.findByIdAndDelete(hostel._id);
+            }
             return res.json({ Status: 'Success', Message: 'Hostel and related records removed' });
         } catch (err) {
             console.error('Error deleting hostel:', err);

@@ -18,15 +18,37 @@ const DashSide = ({ toggleSide, user }) => {
 
     const filteredMenu = useMemo(() => dashsidedata.filter(item => {
         if (roleNames.includes('admin') || roleNames.includes('director')) {
-            return ![3, 5, 7, 12, 13, 14].includes(item.id);
+            // Minimal consolidated admin sidebar:
+            // Wardens, permissions, emergency contacts, and all student sub-features
+            // (Eligible, Assigned, Extra Needs, Special Needs, Assign via Excel)
+            // are now consolidated directly into the Manage Students & Users Hubs.
+            return ![3, 5, 7, 9, 11, 12, 13, 14, 15, 16, 18, 19, 21, 22].includes(item.id);
         }
         if (roleNames.includes('warden')) {
             return ![2, 4, 6, 9, 10, 11, 12, 13, 16, 17, 18, 19, 20, 21].includes(item.id);
         }
         if (roleNames.includes('student')) {
-            return ![2, 3, 4, 5, 6, 7, 9, 10, 11, 14, 15, 16, 17, 18, 19, 20, 21].includes(item.id);
+            return ![2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 14, 15, 16, 17, 18, 19, 20, 21].includes(item.id);
         }
         return false;
+    }).map(item => {
+        if (roleNames.includes('student')) {
+            if (item.id === 22) {
+                return { ...item, name: 'Special Need', link: '/Dashboard/SpecialNeed' };
+            }
+            if (item.id === 13) {
+                return { ...item, name: 'Extra Needs', link: '/Dashboard/ExtraNeeds' };
+            }
+        }
+        if (roleNames.includes('warden')) {
+            if (item.id === 14) {
+                return { ...item, name: 'Extra Needs', link: '/Dashboard/StdExtraNeeds' };
+            }
+            if (item.id === 22) {
+                return { ...item, name: 'Special Needs', link: '/Dashboard/AdminCreateSpecialNeed' };
+            }
+        }
+        return item;
     }), [roleNames]);
 
     const profileItem = filteredMenu.find(item => item.id === 8);
@@ -34,10 +56,16 @@ const DashSide = ({ toggleSide, user }) => {
     const ProfileIcon = profileItem ? profileItem.icon : null;
 
     useEffect(() => {
-        const currentItem = dashsidedata.find(item => item.link === location.pathname);
+        const currentItem = filteredMenu.find(item => item.link === location.pathname)
+            || dashsidedata.find(item => item.link === location.pathname);
         if (currentItem) {
             const allowedIds = filteredMenu.map(item => item.id);
             if (roleNames.includes('warden') && !allowedIds.includes(currentItem.id)) {
+                localStorage.clear();
+                navigate('/');
+                return;
+            }
+            if (roleNames.includes('student') && !allowedIds.includes(currentItem.id)) {
                 localStorage.clear();
                 navigate('/');
                 return;
