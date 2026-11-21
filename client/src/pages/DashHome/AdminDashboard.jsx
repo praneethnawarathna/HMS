@@ -239,7 +239,7 @@ const AdminDashboard = () => {
     }, [students, activityFilter, searchTerm]);
 
     return (
-        <div className="min-h-screen bg-gray-50/50 p-4 md:p-6 lg:p-8 space-y-6">
+        <div className="w-full space-y-6">
             {/* Header Greeting Banner */}
             <div className="bg-gradient-to-r from-[#6b0f14] via-[#7d1319] to-[#8d1820] text-white rounded-2xl p-6 md:p-8 shadow-md relative overflow-hidden">
                 <div className="absolute right-0 top-0 bottom-0 opacity-10 pointer-events-none flex items-center pr-8">

@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { FaFemale, FaGraduationCap, FaMale, FaBed, FaUserClock } from 'react-icons/fa';
@@ -89,12 +89,12 @@ const WardenStudents = () => {
     if (error) return <div className="p-4 text-center text-red-600">{error}</div>;
 
     return (
-        <div className="mt-8">
-            <div className="mb-4 font-semibold text-gray-700">
+        <div className="w-full space-y-6">
+            <div className="mb-2 font-semibold text-gray-700">
                 Logged in as: {currentUser?.email || 'Unknown Warden'}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 my-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 <div className="relative bg-[#6b0f14] text-white p-6 rounded-2xl shadow-lg overflow-hidden hover:scale-[1.02] transition-transform duration-300">
                     <div className="absolute right-4 top-4 opacity-20 text-white text-6xl">
                         <FaGraduationCap />
